@@ -285,7 +285,7 @@
 
     /* Flash */
     .flash { display: grid; gap: 28px; align-items: center; }
-    @media (min-width: 960px) { .flash { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 960px) { .flash { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
     .flash-card { background: var(--ink); color: var(--paper); border-radius: 22px; padding: 32px; display: grid; gap: 18px; }
     .flash-card h3 { font-size: 26px; font-weight: 800; }
     .flash-card p { color: color-mix(in srgb, var(--paper) 75%, transparent); }
@@ -637,9 +637,9 @@
         <p class="lede">Install the latest firmware from this page with Chrome or Edge on a computer. Prefer to build it yourself? It's one <code>pio run</code> away.</p>
       </div>
       <ul class="checks">
-        <li>Disconnect the TP4056 <code>OUT+</code> wire, then plug the XIAO into your computer.</li>
-        <li>Click <b>Connect &amp; install</b>, pick the serial port, and choose to erase the device on a first install.</li>
-        <li>After a few seconds the LED blinks slowly: open <i>Permit join</i> in Zigbee2MQTT.</li>
+        <li><span>Disconnect the TP4056 <code>OUT+</code> wire, then plug the XIAO into your computer.</span></li>
+        <li><span>Click <b>Connect &amp; install</b>, pick the serial port, and choose to erase the device on a first install.</span></li>
+        <li><span>After a few seconds the LED blinks slowly: open <i>Permit join</i> in Zigbee2MQTT.</span></li>
       </ul>
     </div>
     <div class="flash-card">
