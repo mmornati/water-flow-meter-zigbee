@@ -1,0 +1,37 @@
+name: Release
+
+# Push a tag like v1.0.0 to build the firmware and publish a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install PlatformIO
+        run: pip install platformio
+      - name: Unit tests
+        run: pio test -d firmware -e native
+      - name: Build firmware
+        run: pio run -d firmware -e xiao_esp32c6
+      - name: Collect release files
+        run: |
+          mkdir dist
+          build=firmware/.pio/build/xiao_esp32c6
+          cp "$build/firmware.factory.bin" "dist/water-flow-meter-zigbee-${GITHUB_REF_NAME}-factory.bin"
+          cp "$build/firmware.bin" "dist/water-flow-meter-zigbee-${GITHUB_REF_NAME}-app.bin"
+          cp zigbee2mqtt/water_flow_meter.mjs dist/
+          cp homeassistant/water_meter.yaml dist/
+          (cd dist && sha256sum * > SHA256SUMS)
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --generate-notes --title "$GITHUB_REF_NAME"

@@ -1,0 +1,4 @@
+# Minimal Home Assistant configuration used only to validate the package in CI.
+homeassistant:
+  name: CI
+  packages: !include_dir_named packages

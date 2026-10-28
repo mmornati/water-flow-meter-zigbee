@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Firmware unit tests (host)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install PlatformIO
+        run: pip install platformio
+      - name: Run unit tests
+        run: pio test -d firmware -e native
+
+  firmware-platformio:
+    name: Firmware build (PlatformIO)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+      - name: Install PlatformIO
+        run: pip install platformio
+      - name: Build with battery sensing
+        run: pio run -d firmware -e xiao_esp32c6
+        env:
+          PLATFORMIO_BUILD_FLAGS: -DBATTERY_ADC_PIN=0
+      - name: Build (default)
+        run: pio run -d firmware -e xiao_esp32c6
+      - name: Upload firmware
+        uses: actions/upload-artifact@v7
+        with:
+          name: firmware-${{ github.sha }}
+          path: |
+            firmware/.pio/build/xiao_esp32c6/firmware.factory.bin
+            firmware/.pio/build/xiao_esp32c6/firmware.bin
+          retention-days: 14
+
+  firmware-arduino:
+    name: Firmware build (Arduino CLI)
+    runs-on: ubuntu-latest
+    env:
+      ESP32_INDEX: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+      FQBN: esp32:esp32:XIAO_ESP32C6:ZigbeeMode=zczr,PartitionScheme=zigbee_zczr
+    steps:
+      - uses: actions/checkout@v7
+      - uses: arduino/setup-arduino-cli@v2
+      - uses: actions/cache@v4
+        with:
+          path: ~/.arduino15
+          key: arduino-esp32-3.3.12-${{ runner.os }}
+      - name: Install ESP32 core and libraries
+        run: |
+          arduino-cli core update-index --additional-urls "$ESP32_INDEX"
+          arduino-cli core install esp32:esp32@3.3.12 --additional-urls "$ESP32_INDEX"
+          arduino-cli lib install "Adafruit BME280 Library"
+      - name: Compile
+        run: arduino-cli compile --fqbn "$FQBN" --warnings all firmware/flow_meter
+
+  converter:
+    name: Zigbee2MQTT converter tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: zigbee2mqtt
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: zigbee2mqtt/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  home-assistant:
+    name: Home Assistant config check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate package with Home Assistant
+        run: homeassistant/ci/check_config.sh
+
+  docs:
+    name: Docs links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check local links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --offline --no-progress --include-fragments --exclude-path node_modules --exclude-path .pio '**/*.md'
+          fail: true

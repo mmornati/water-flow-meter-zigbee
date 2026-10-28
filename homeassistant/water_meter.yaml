@@ -1,0 +1,208 @@
+# Home Assistant package: DIY Zigbee water flow meter (XIAO ESP32-C6 + Hall sensor)
+#
+# Install: copy to /config/packages/water_meter.yaml and make sure configuration.yaml has
+#   homeassistant:
+#     packages: !include_dir_named packages
+#
+# Entity IDs below assume the Zigbee2MQTT friendly name "water_meter":
+#   sensor.water_meter_flow              L/min
+#   sensor.water_meter_water_consumed    L, total_increasing (add it to the Energy dashboard)
+#   number.water_meter_pulses_per_liter  calibration
+#   sensor.water_meter_battery_voltage   V (only if the battery divider is wired)
+# Replace notify.notify with your own notifier (e.g. notify.mobile_app_<phone>).
+
+input_number:
+  water_leak_alert_minutes:
+    name: Water - continuous flow alert delay
+    min: 5
+    max: 600
+    step: 5
+    unit_of_measurement: min
+    initial: 60
+
+  water_calibration_real_liters:
+    name: Water calibration - real volume
+    min: 1
+    max: 200
+    step: 0.5
+    unit_of_measurement: L
+    initial: 10
+
+  # Storage for the scripts and automations below, no need to show them on a dashboard.
+  water_calibration_start_liters:
+    name: Water calibration - meter reading at start
+    min: 0
+    max: 1000000000
+    step: 0.001
+    mode: box
+    unit_of_measurement: L
+
+  water_night_start_liters:
+    name: Water - meter reading at 01:00
+    min: 0
+    max: 1000000000
+    step: 0.001
+    mode: box
+    unit_of_measurement: L
+
+utility_meter:
+  water_daily:
+    name: Water today
+    source: sensor.water_meter_water_consumed
+    cycle: daily
+  water_monthly:
+    name: Water this month
+    source: sensor.water_meter_water_consumed
+    cycle: monthly
+  water_yearly:
+    name: Water this year
+    source: sensor.water_meter_water_consumed
+    cycle: yearly
+
+template:
+  - sensor:
+      - name: Water total m³
+        unique_id: water_meter_total_m3
+        unit_of_measurement: "m³"
+        device_class: water
+        state_class: total_increasing
+        state: "{{ (states('sensor.water_meter_water_consumed') | float / 1000) | round(3) }}"
+        availability: "{{ has_value('sensor.water_meter_water_consumed') }}"
+
+script:
+  # Calibration: 1) run "start", 2) fill a bucket of known volume, close the tap,
+  # 3) wait until the flow shows 0, 4) set the real volume and run "finish".
+  water_calibration_start:
+    alias: Water calibration - start
+    icon: mdi:cup-water
+    mode: single
+    sequence:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.water_calibration_start_liters
+        data:
+          value: "{{ states('sensor.water_meter_water_consumed') | float }}"
+
+  water_calibration_finish:
+    alias: Water calibration - finish
+    icon: mdi:check-circle-outline
+    mode: single
+    sequence:
+      - variables:
+          counted: >-
+            {{ states('sensor.water_meter_water_consumed') | float
+               - states('input_number.water_calibration_start_liters') | float }}
+          real: "{{ states('input_number.water_calibration_real_liters') | float }}"
+          current: "{{ states('number.water_meter_pulses_per_liter') | float }}"
+      - if:
+          - condition: template
+            value_template: "{{ counted > 0 and real > 0 and current > 0 and states('sensor.water_meter_flow') | float(1) == 0 }}"
+        then:
+          - action: number.set_value
+            target:
+              entity_id: number.water_meter_pulses_per_liter
+            data:
+              value: "{{ (current * counted / real) | round(0) }}"
+          - action: notify.notify
+            data:
+              title: "Water meter"
+              message: >-
+                Counted {{ counted | round(2) }} L for {{ real }} L really used.
+                Calibration {{ current | round(0) }} -> {{ (current * counted / real) | round(0) }} pulses/L.
+        else:
+          - action: notify.notify
+            data:
+              title: "Water meter"
+              message: >-
+                Calibration not applied: wait until the flow is 0 and check that water was
+                counted since "start" ({{ counted | round(2) }} L so far).
+
+automation:
+  - id: water_continuous_flow
+    alias: Water - continuous flow (leak or tap left open)
+    mode: single
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.water_meter_flow
+        above: 0
+        for:
+          minutes: "{{ states('input_number.water_leak_alert_minutes') | int(60) }}"
+    actions:
+      - action: notify.notify
+        data:
+          title: "Water meter"
+          message: >-
+            Water has been flowing without a break for
+            {{ states('input_number.water_leak_alert_minutes') | int(60) }} minutes
+            ({{ states('sensor.water_meter_flow') }} L/min right now). Leak or tap left open?
+
+  - id: water_night_usage
+    alias: Water - used during the night
+    mode: single
+    triggers:
+      - trigger: time
+        at: "06:00:00"
+    conditions:
+      # More than 2 L between 01:00 and 06:00: a dripping tap or a running toilet.
+      - condition: template
+        value_template: >-
+          {% set now_total = states('sensor.water_meter_water_consumed') | float(0) %}
+          {{ now_total - (states('input_number.water_night_start_liters') | float(now_total)) > 2 }}
+    actions:
+      - action: notify.notify
+        data:
+          title: "Water meter"
+          message: >-
+            {{ (states('sensor.water_meter_water_consumed') | float(0)
+                - states('input_number.water_night_start_liters') | float(0)) | round(1) }} L
+            were used between 01:00 and 06:00. Check for a leak.
+
+  - id: water_night_start
+    alias: Water - remember the 01:00 reading
+    mode: single
+    triggers:
+      - trigger: time
+        at: "01:00:00"
+    conditions:
+      - condition: template
+        value_template: "{{ has_value('sensor.water_meter_water_consumed') }}"
+    actions:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.water_night_start_liters
+        data:
+          value: "{{ states('sensor.water_meter_water_consumed') | float }}"
+
+  - id: water_meter_offline
+    alias: Water - meter offline
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: sensor.water_meter_water_consumed
+        to: "unavailable"
+        for:
+          minutes: 15
+    actions:
+      - action: notify.notify
+        data:
+          title: "Water meter"
+          message: "The water meter has been offline for 15 minutes."
+
+  - id: water_meter_on_battery
+    alias: Water - meter running on battery
+    mode: single
+    # Only fires if the battery divider is wired (sensor.water_meter_battery_voltage exists).
+    # On USB the TP4056 holds the cell at ~4.2 V; a steady drop means USB power is gone.
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.water_meter_battery_voltage
+        below: 4.0
+        for:
+          minutes: 5
+    actions:
+      - action: notify.notify
+        data:
+          title: "Water meter"
+          message: >-
+            The water meter is running on its backup battery
+            ({{ states('sensor.water_meter_battery_voltage') }} V). Check its USB power.

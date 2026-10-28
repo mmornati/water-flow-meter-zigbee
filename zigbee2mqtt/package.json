@@ -1,0 +1,12 @@
+{
+  "name": "water-flow-meter-zigbee-converter",
+  "private": true,
+  "type": "module",
+  "description": "Tests for the Zigbee2MQTT external converter",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "zigbee-herdsman-converters": "^26.125.0"
+  }
+}
