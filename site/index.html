@@ -107,6 +107,15 @@
     nav.top ul a:hover { color: var(--water); }
     @media (min-width: 940px) { nav.top ul { display: flex; } }
 
+    .nav-end { display: flex; align-items: center; gap: 10px; }
+    .lang { display: inline-flex; padding: 3px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); }
+    .lang button {
+      font: 700 12px var(--mono); letter-spacing: .04em; color: var(--muted);
+      background: none; border: 0; border-radius: 7px; padding: 5px 9px; cursor: pointer;
+    }
+    .lang button:hover { color: var(--ink); }
+    .lang button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 10px;
       padding: 13px 22px; border-radius: 12px; border: 1px solid transparent;
@@ -120,7 +129,7 @@
     .btn-ghost:hover { border-color: var(--ink); }
     .btn-sm { padding: 8px 14px; font-size: 14px; border-radius: 10px; }
     .btn svg { width: 18px; height: 18px; flex: none; }
-    @media (max-width: 480px) { .gh-label { display: none; } }
+    @media (max-width: 560px) { .gh-label { display: none; } .brand span { display: none; } }
 
     /* ---------- Hero ---------- */
     header.hero { padding: 64px 0 72px; position: relative; }
@@ -176,7 +185,7 @@
 
     .readout { display: grid; gap: 12px; }
     .stat { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: var(--paper); }
-    .stat .k { font: 600 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+    .stat .k { font: 600 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 10px; }
     .stat .v { font: 800 34px var(--display); font-stretch: 80%; line-height: 1.1; font-variant-numeric: tabular-nums; }
     .stat .v small { font: 600 14px var(--mono); color: var(--muted); margin-left: 4px; }
     .pulse-led { width: 9px; height: 9px; border-radius: 50%; background: var(--line-2); display: inline-block; transition: background .05s; }
@@ -349,52 +358,59 @@
 </head>
 <body>
 
-<nav class="top" aria-label="Main">
+<nav class="top" aria-label="Main" data-i18n-attr="aria-label:nav.label">
   <div class="wrap">
-    <a class="brand" href="#top" aria-label="Water Flow Meter Zigbee, home">
+    <a class="brand" href="#top" aria-label="Water Flow Meter Zigbee, home" data-i18n-attr="aria-label:nav.home">
       <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#102a3c"/><circle cx="16" cy="16" r="9" fill="none" stroke="#f3efe6" stroke-width="2"/><path d="M16 16 L21 11" stroke="#e0452f" stroke-width="2.4" stroke-linecap="round"/><circle cx="16" cy="16" r="2" fill="#f3efe6"/></svg>
-      Water Flow Meter
+      <span data-i18n="nav.brand">Water Flow Meter</span>
     </a>
     <ul>
-      <li><a href="#how">How it works</a></li>
-      <li><a href="#home-assistant">Home Assistant</a></li>
-      <li><a href="#calibrate">Calibrate</a></li>
-      <li><a href="#flash">Flash</a></li>
-      <li><a href="#build">Build</a></li>
-      <li><a href="#faq">FAQ</a></li>
+      <li><a href="#how" data-i18n="nav.how">How it works</a></li>
+      <li><a href="#home-assistant" data-i18n="nav.ha">Home Assistant</a></li>
+      <li><a href="#calibrate" data-i18n="nav.calibrate">Calibrate</a></li>
+      <li><a href="#flash" data-i18n="nav.flash">Flash</a></li>
+      <li><a href="#build" data-i18n="nav.build">Build</a></li>
+      <li><a href="#faq" data-i18n="nav.faq">FAQ</a></li>
     </ul>
-    <a class="btn btn-ghost btn-sm" href="https://github.com/mmornati/water-flow-meter-zigbee">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.29-1.69-1.29-1.69-1.04-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
-      <span class="gh-label">GitHub</span>
-    </a>
+    <div class="nav-end">
+      <div class="lang" role="group" aria-label="Language" data-i18n-attr="aria-label:nav.language">
+        <button type="button" data-lang="en" lang="en" title="English">EN</button>
+        <button type="button" data-lang="fr" lang="fr" title="Français">FR</button>
+        <button type="button" data-lang="it" lang="it" title="Italiano">IT</button>
+      </div>
+      <a class="btn btn-ghost btn-sm" href="https://github.com/mmornati/water-flow-meter-zigbee" data-readme>
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.29-1.69-1.29-1.69-1.04-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+        <span class="gh-label">GitHub</span>
+      </a>
+    </div>
   </div>
 </nav>
 
 <header class="hero" id="top">
   <div class="wrap hero-grid">
     <div>
-      <span class="eyebrow">DIY Zigbee water meter</span>
-      <h1>Every litre,<br><span class="r">accounted</span> for.</h1>
-      <p class="lede">A Seeed XIAO ESP32-C6 counts the pulses of a G3/4 Hall flow sensor and sends live flow and the running total to Home Assistant over Zigbee. It keeps counting on its 18650 backup when the power goes out.</p>
+      <span class="eyebrow" data-i18n="hero.eyebrow">DIY Zigbee water meter</span>
+      <h1 data-i18n="hero.title">Every litre,<br><span class="r">accounted</span> for.</h1>
+      <p class="lede" data-i18n="hero.lede">A Seeed XIAO ESP32-C6 counts the pulses of a G3/4 Hall flow sensor and sends live flow and the running total to Home Assistant over Zigbee. It keeps counting on its 18650 backup when the power goes out.</p>
       <div class="cta">
         <a class="btn btn-primary" href="#flash">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-          Flash in your browser
+          <span data-i18n="hero.ctaFlash">Flash in your browser</span>
         </a>
-        <a class="btn btn-ghost" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/01-hardware-and-wiring.md">Read the build guide</a>
+        <a class="btn btn-ghost" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/01-hardware-and-wiring.md" data-doc="01-hardware-and-wiring.md" data-i18n="hero.ctaGuide">Read the build guide</a>
       </div>
-      <ul class="specs" aria-label="Key specs">
+      <ul class="specs" aria-label="Key specs" data-i18n-attr="aria-label:hero.specsLabel">
         <li>1–30 L/min</li>
-        <li>Zigbee router</li>
+        <li data-i18n="hero.spec.router">Zigbee router</li>
         <li>Zigbee2MQTT 2.x</li>
-        <li>No WiFi, no cloud</li>
+        <li data-i18n="hero.spec.nocloud">No WiFi, no cloud</li>
       </ul>
     </div>
 
-    <div class="demo" aria-label="Interactive demo of the meter">
+    <div class="demo" aria-label="Interactive demo of the meter" data-i18n-attr="aria-label:demo.label">
       <div class="demo-head">
-        <span>Live demo</span>
-        <span class="net"><i></i>Joined · router</span>
+        <span data-i18n="demo.title">Live demo</span>
+        <span class="net"><i></i><span data-i18n="demo.joined">Joined · router</span></span>
       </div>
       <div class="meter">
         <div class="dial">
@@ -425,32 +441,32 @@
         </div>
         <div class="readout">
           <div class="stat">
-            <div class="k"><span>Flow</span><span><span class="pulse-led" id="led"></span> pulses</span></div>
+            <div class="k"><span data-i18n="demo.flow">Flow</span><span><span class="pulse-led" id="led"></span> <span data-i18n="demo.pulses">pulses</span></span></div>
             <div class="v"><span id="flow-v">0.0</span><small>L/min</small></div>
             <svg class="spark" viewBox="0 0 120 38" preserveAspectRatio="none" aria-hidden="true">
               <polyline id="spark" fill="none" stroke="var(--water)" stroke-width="1.6" stroke-linejoin="round" points=""/>
             </svg>
           </div>
           <div class="stat">
-            <div class="k"><span>Today</span><span>water_daily</span></div>
+            <div class="k"><span data-i18n="demo.today">Today</span><span>water_daily</span></div>
             <div class="v"><span id="today-v">0.0</span><small>L</small></div>
           </div>
         </div>
       </div>
       <div class="tap">
         <div class="tap-row">
-          <label for="tap">Open the tap</label>
+          <label for="tap" data-i18n="demo.tap">Open the tap</label>
           <input type="range" id="tap" min="0" max="30" step="0.1" value="0" aria-describedby="flow-v">
         </div>
-        <div class="presets" role="group" aria-label="Flow presets">
-          <button type="button" data-flow="0">Off</button>
-          <button type="button" data-flow="0.6">Dripping tap</button>
-          <button type="button" data-flow="9">Shower</button>
-          <button type="button" data-flow="14">Washing machine</button>
-          <button type="button" data-flow="22">Garden hose</button>
+        <div class="presets" role="group" aria-label="Flow presets" data-i18n-attr="aria-label:demo.presets">
+          <button type="button" data-flow="0" data-i18n="demo.p.off">Off</button>
+          <button type="button" data-flow="0.6" data-i18n="demo.p.drip">Dripping tap</button>
+          <button type="button" data-flow="9" data-i18n="demo.p.shower">Shower</button>
+          <button type="button" data-flow="14" data-i18n="demo.p.washer">Washing machine</button>
+          <button type="button" data-flow="22" data-i18n="demo.p.hose">Garden hose</button>
         </div>
       </div>
-      <div class="payload" aria-live="polite"><span class="sent" id="sent">● report sent</span><span class="c">// zigbee2mqtt/water_meter</span>
+      <div class="payload" aria-live="polite"><span class="sent" id="sent">● <span data-i18n="demo.sent">report sent</span></span><span class="c">// zigbee2mqtt/water_meter</span>
 <span id="payload"></span></div>
     </div>
   </div>
@@ -459,42 +475,42 @@
 <section id="why" class="alt">
   <div class="wrap">
     <div class="sec-head">
-      <span class="eyebrow">Why this one</span>
-      <h2>Your WiFi water monitor, minus the WiFi.</h2>
-      <p class="lede">Same sensor, same numbers as an ESPHome build. It joins the Zigbee mesh your other sensors already use, and it doesn't stop counting when something else does.</p>
+      <span class="eyebrow" data-i18n="why.kicker">Why this one</span>
+      <h2 data-i18n="why.title">Your WiFi water monitor, minus the WiFi.</h2>
+      <p class="lede" data-i18n="why.sub">Same sensor, same numbers as an ESPHome build. It joins the Zigbee mesh your other sensors already use, and it doesn't stop counting when something else does.</p>
     </div>
     <div class="features">
       <div class="feature">
-        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.7s6 6.6 6 11.3a6 6 0 0 1-12 0c0-4.7 6-11.3 6-11.3Z"/></svg>Flow and total</h3>
-        <p>Live flow in L/min and a total in litres, ready for the Home Assistant Energy dashboard.</p>
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.7s6 6.6 6 11.3a6 6 0 0 1-12 0c0-4.7 6-11.3 6-11.3Z"/></svg><span data-i18n="why.total.title">Flow and total</span></h3>
+        <p data-i18n="why.total.text">Live flow in L/min and a total in litres, ready for the Home Assistant Energy dashboard.</p>
       </div>
       <div class="feature">
-        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2M6 11v2M10 11v2"/></svg>Survives power cuts</h3>
-        <p>Runs from USB with an 18650 backup. The total lives in flash and survives reboots too.</p>
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2M6 11v2M10 11v2"/></svg><span data-i18n="why.backup.title">Survives power cuts</span></h3>
+        <p data-i18n="why.backup.text">Runs from USB with an 18650 backup. The total lives in flash and survives reboots too.</p>
       </div>
       <div class="feature">
-        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h3l3-8 6 16 3-8h3"/></svg>Hardware counting</h3>
-        <p>The ESP32-C6 PCNT counter with a glitch filter. No pulse is lost while the radio talks.</p>
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h3l3-8 6 16 3-8h3"/></svg><span data-i18n="why.pcnt.title">Hardware counting</span></h3>
+        <p data-i18n="why.pcnt.text">The ESP32-C6 PCNT counter with a glitch filter. No pulse is lost while the radio talks.</p>
       </div>
       <div class="feature">
-        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4M12 17h.01"/></svg>Leak alerts</h3>
-        <p>Water running non-stop, used overnight, meter offline, running on battery. All in the HA package.</p>
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4M12 17h.01"/></svg><span data-i18n="why.leak.title">Leak alerts</span></h3>
+        <p data-i18n="why.leak.text">Water running non-stop, used overnight, meter offline, running on battery. All in the HA package.</p>
       </div>
       <div class="feature">
-        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14l-1.5 14h-11L5 6ZM3 6h18M9 10v6M15 10v6"/></svg>Calibrate with a bucket</h3>
-        <p>Pulses per litre are stored on the device. Two scripts compute the right value for you.</p>
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14l-1.5 14h-11L5 6ZM3 6h18M9 10v6M15 10v6"/></svg><span data-i18n="why.calib.title">Calibrate with a bucket</span></h3>
+        <p data-i18n="why.calib.text">Pulses per litre are stored on the device. Two scripts compute the right value for you.</p>
       </div>
       <div class="feature">
-        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5"/></svg>A router, too</h3>
-        <p>Always powered, so it relays Zigbee traffic for the devices around your utility room.</p>
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5"/></svg><span data-i18n="why.router.title">A router, too</span></h3>
+        <p data-i18n="why.router.text">Always powered, so it relays Zigbee traffic for the devices around your utility room.</p>
       </div>
       <div class="feature">
-        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0Z"/></svg>Optional BME280</h3>
-        <p>Temperature, humidity and pressure, detected at boot. No sensor, no empty entities to fight with.</p>
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0Z"/></svg><span data-i18n="why.bme.title">Optional BME280</span></h3>
+        <p data-i18n="why.bme.text">Temperature, humidity and pressure, detected at boot. No sensor, no empty entities to fight with.</p>
       </div>
       <div class="feature">
-        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Tested on every commit</h3>
-        <p>Unit tests, two firmware builds, converter tests on Z2M's own library, Home Assistant's config checker.</p>
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="why.tested.title">Tested on every commit</span></h3>
+        <p data-i18n="why.tested.text">Unit tests, two firmware builds, converter tests on Z2M's own library, Home Assistant's config checker.</p>
       </div>
     </div>
   </div>
@@ -503,42 +519,42 @@
 <section id="how">
   <div class="wrap">
     <div class="sec-head">
-      <span class="eyebrow">How it works</span>
-      <h2>From a spinning rotor to your Energy dashboard.</h2>
+      <span class="eyebrow" data-i18n="how.kicker">How it works</span>
+      <h2 data-i18n="how.title">From a spinning rotor to your Energy dashboard.</h2>
     </div>
     <div class="flow-steps">
       <div class="step">
-        <h3>The rotor spins</h3>
-        <p>Water turns a small turbine in the G3/4 sensor. A magnet on it passes a Hall sensor once per turn.</p>
-        <span class="tag">yellow wire → D2</span>
+        <h3 data-i18n="how.s1.title">The rotor spins</h3>
+        <p data-i18n="how.s1.text">Water turns a small turbine in the G3/4 sensor. A magnet on it passes a Hall sensor once per turn.</p>
+        <span class="tag" data-i18n="how.s1.tag">yellow wire → D2</span>
       </div>
       <div class="step">
-        <h3>Hardware counts</h3>
-        <p>The PCNT peripheral counts every rising edge and drops spikes under 10&nbsp;µs. The CPU just reads it once a second.</p>
+        <h3 data-i18n="how.s2.title">Hardware counts</h3>
+        <p data-i18n="how.s2.text">The PCNT peripheral counts every rising edge and drops spikes under 10&nbsp;µs. The CPU just reads it once a second.</p>
         <span class="tag">PCNT · 1 s</span>
       </div>
       <div class="step">
-        <h3>Pulses become litres</h3>
-        <p>Flow is averaged over 5&nbsp;s. The total is kept as a double, exact to the millilitre for decades, and saved when the water stops.</p>
+        <h3 data-i18n="how.s3.title">Pulses become litres</h3>
+        <p data-i18n="how.s3.text">Flow is averaged over 5&nbsp;s. The total is kept as a double, exact to the millilitre for decades, and saved when the water stops.</p>
         <span class="tag">flow_logic.h</span>
       </div>
       <div class="step">
-        <h3>Zigbee reports</h3>
-        <p>Start and stop go out at once; while flowing, every 5&nbsp;s if something changed; everything again every 5&nbsp;min.</p>
+        <h3 data-i18n="how.s4.title">Zigbee reports</h3>
+        <p data-i18n="how.s4.text">Start and stop go out at once; while flowing, every 5&nbsp;s if something changed; everything again every 5&nbsp;min.</p>
         <span class="tag">Analog Input</span>
       </div>
       <div class="step">
         <h3>Home Assistant</h3>
-        <p>Zigbee2MQTT exposes <code>flow</code> and <code>water_consumed</code>, which Home Assistant knows as volume flow rate and water.</p>
-        <span class="tag">Energy · alerts</span>
+        <p data-i18n="how.s5.text">Zigbee2MQTT exposes <code>flow</code> and <code>water_consumed</code>, which Home Assistant knows as volume flow rate and water.</p>
+        <span class="tag" data-i18n="how.s5.tag">Energy · alerts</span>
       </div>
     </div>
-    <div class="math" aria-label="Example conversion">
-      <span>490 pulses</span><span>=</span><b>1 L</b>
+    <div class="math" aria-label="Example conversion" data-i18n-attr="aria-label:how.mathLabel">
+      <span data-i18n="how.m.pulses">490 pulses</span><span>=</span><b>1 L</b>
       <span aria-hidden="true">·</span>
-      <span>49 pulses/s</span><span>=</span><b>6 L/min</b>
+      <span data-i18n="how.m.rate">49 pulses/s</span><span>=</span><b>6 L/min</b>
       <span aria-hidden="true">·</span>
-      <span>a 10-minute shower ≈</span><b>90 L</b>
+      <span data-i18n="how.m.shower">a 10-minute shower ≈</span><b>90 L</b>
     </div>
   </div>
 </section>
@@ -548,57 +564,57 @@
     <div>
       <div class="sec-head">
         <span class="eyebrow">Home Assistant</span>
-        <h2>Know where it goes. Hear about it when it shouldn't.</h2>
-        <p class="lede">One Zigbee2MQTT converter, one package file. You get native entities, utility meters for today, this month and this year, and alerts that catch what a monthly bill never will.</p>
+        <h2 data-i18n="ha.title">Know where it goes. Hear about it when it shouldn't.</h2>
+        <p class="lede" data-i18n="ha.sub">One Zigbee2MQTT converter, one package file. You get native entities, utility meters for today, this month and this year, and alerts that catch what a monthly bill never will.</p>
       </div>
       <div class="alerts">
         <div class="alert">
           <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-          <p><b>Continuous flow.</b> Water running without a break for an hour (you pick the delay): a leak, a hose or a tap left open.</p>
+          <p data-i18n="ha.a1"><b>Continuous flow.</b> Water running without a break for an hour (you pick the delay): a leak, a hose or a tap left open.</p>
         </div>
         <div class="alert">
           <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></span>
-          <p><b>Night usage.</b> More than 2&nbsp;L between 01:00 and 06:00: a dripping tap or a running toilet.</p>
+          <p data-i18n="ha.a2"><b>Night usage.</b> More than 2&nbsp;L between 01:00 and 06:00: a dripping tap or a running toilet.</p>
         </div>
         <div class="alert">
           <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2M7 11v2"/></svg></span>
-          <p><b>On battery.</b> USB power is gone and the backup cell is draining. Plus <b>meter offline</b> after 15 minutes of silence.</p>
+          <p data-i18n="ha.a3"><b>On battery.</b> USB power is gone and the backup cell is draining. Plus <b>meter offline</b> after 15 minutes of silence.</p>
         </div>
       </div>
     </div>
     <div class="ha-cards">
       <div class="ha-card wide">
-        <h4>Water consumption · last 7 days</h4>
-        <div class="bars" aria-label="Bar chart of daily water use, example data">
+        <h4 data-i18n="ha.c.week">Water consumption · last 7 days</h4>
+        <div class="bars" aria-label="Bar chart of daily water use, example data" data-i18n-attr="aria-label:ha.c.barsLabel">
           <span style="height:62%"></span><span style="height:74%"></span><span style="height:55%"></span><span style="height:88%"></span><span style="height:69%"></span><span style="height:97%"></span><span class="today" id="today-bar" style="height:20%"></span>
         </div>
-        <div class="bars-x" aria-hidden="true"><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span><span>Mon</span><span>Tue</span><span>Today</span></div>
+        <div class="bars-x" aria-hidden="true"><span data-i18n="ha.c.d1">Thu</span><span data-i18n="ha.c.d2">Fri</span><span data-i18n="ha.c.d3">Sat</span><span data-i18n="ha.c.d4">Sun</span><span data-i18n="ha.c.d5">Mon</span><span data-i18n="ha.c.d6">Tue</span><span data-i18n="ha.c.today">Today</span></div>
       </div>
       <div class="ha-card">
-        <h4>Water this month</h4>
-        <div class="big">4.82 <small>m³</small></div>
+        <h4 data-i18n="ha.c.month">Water this month</h4>
+        <div class="big"><span id="ha-month">4.82</span> <small>m³</small></div>
       </div>
       <div class="ha-card">
-        <h4>Flow</h4>
+        <h4 data-i18n="demo.flow">Flow</h4>
         <div class="big"><span id="ha-flow">0.0</span> <small>L/min</small></div>
       </div>
       <div class="ha-card wide">
         <div class="notif">
           <span class="app"><svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 2 2 11h3v10h14V11h3L12 2Z"/></svg></span>
           <div>
-            <b>Water meter</b>
-            <p>Water has been flowing without a break for 60 minutes (0.6 L/min right now). Leak or tap left open?</p>
-            <time>Home Assistant · now</time>
+            <b data-i18n="ha.n.title">Water meter</b>
+            <p data-i18n="ha.n.text">Water has been flowing without a break for 60 minutes (0.6 L/min right now). Leak or tap left open?</p>
+            <time data-i18n="ha.n.time">Home Assistant · now</time>
           </div>
         </div>
       </div>
       <div class="ha-card wide">
-        <h4>Entities</h4>
+        <h4 data-i18n="ha.e.title">Entities</h4>
         <ul class="entities">
-          <li><code>sensor.water_meter_flow</code><span>volume flow rate</span></li>
-          <li><code>sensor.water_meter_water_consumed</code><span>water · total</span></li>
-          <li><code>number.water_meter_pulses_per_liter</code><span>config</span></li>
-          <li><code>sensor.water_today · _this_month · _this_year</code><span>utility meters</span></li>
+          <li><code>sensor.water_meter_flow</code><span data-i18n="ha.e.flow">volume flow rate</span></li>
+          <li><code>sensor.water_meter_water_consumed</code><span data-i18n="ha.e.total">water · total</span></li>
+          <li><code>number.water_meter_pulses_per_liter</code><span data-i18n="ha.e.config">config</span></li>
+          <li><code>sensor.water_today · _this_month · _this_year</code><span data-i18n="ha.e.meters">utility meters</span></li>
         </ul>
       </div>
     </div>
@@ -609,21 +625,21 @@
   <div class="wrap calib">
     <div>
       <div class="sec-head">
-        <span class="eyebrow">Calibrate</span>
-        <h2>A bucket beats a datasheet.</h2>
-        <p class="lede">Hall sensors are sold with a rough "F = 5.5 × Q". The real number varies from unit to unit. Ten minutes with a bucket and the meter matches your utility bill.</p>
+        <span class="eyebrow" data-i18n="cal.kicker">Calibrate</span>
+        <h2 data-i18n="cal.title">A bucket beats a datasheet.</h2>
+        <p class="lede" data-i18n="cal.sub">Hall sensors are sold with a rough "F = 5.5 × Q". The real number varies from unit to unit. Ten minutes with a bucket and the meter matches your utility bill.</p>
       </div>
       <ol class="big-steps">
-        <li><div><h3>Start</h3><p>Run <b>Water calibration - start</b> in Home Assistant. It remembers the current total.</p></div></li>
-        <li><div><h3>Fill a bucket</h3><p>10&nbsp;L, at your usual flow, with nothing else using water in the house.</p></div></li>
-        <li><div><h3>Wait for zero</h3><p>Close the tap and wait until the flow reads 0, so the last litres are reported.</p></div></li>
-        <li><div><h3>Finish</h3><p>Enter the real volume and run <b>Water calibration - finish</b>. The new value is written to the meter.</p></div></li>
+        <li><div><h3 data-i18n="cal.s1.title">Start</h3><p data-i18n="cal.s1.text">Run <b>Water calibration - start</b> in Home Assistant. It remembers the current total.</p></div></li>
+        <li><div><h3 data-i18n="cal.s2.title">Fill a bucket</h3><p data-i18n="cal.s2.text">10&nbsp;L, at your usual flow, with nothing else using water in the house.</p></div></li>
+        <li><div><h3 data-i18n="cal.s3.title">Wait for zero</h3><p data-i18n="cal.s3.text">Close the tap and wait until the flow reads 0, so the last litres are reported.</p></div></li>
+        <li><div><h3 data-i18n="cal.s4.title">Finish</h3><p data-i18n="cal.s4.text">Enter the real volume and run <b>Water calibration - finish</b>. The new value is written to the meter.</p></div></li>
       </ol>
     </div>
     <div class="formula">
-      <div class="eq">new&nbsp;=&nbsp;current&nbsp;×<span class="frac"><span>counted</span><span>real</span></span></div>
-      <div class="ex">490 × <span>10.8 L counted</span> / <span>10 L real</span> = <b>529 pulses/L</b></div>
-      <p class="ex">Recalibrating never rewrites the litres already counted.</p>
+      <div class="eq" data-i18n="cal.eq">new&nbsp;=&nbsp;current&nbsp;×<span class="frac"><span>counted</span><span>real</span></span></div>
+      <div class="ex" data-i18n="cal.ex">490 × <span>10.8 L counted</span> / <span>10 L real</span> = <b>529 pulses/L</b></div>
+      <p class="ex" data-i18n="cal.note">Recalibrating never rewrites the litres already counted.</p>
     </div>
   </div>
 </section>
@@ -632,30 +648,30 @@
   <div class="wrap flash">
     <div>
       <div class="sec-head">
-        <span class="eyebrow">Flash</span>
-        <h2>No toolchain. Just a USB cable.</h2>
-        <p class="lede">Install the latest firmware from this page with Chrome or Edge on a computer. Prefer to build it yourself? It's one <code>pio run</code> away.</p>
+        <span class="eyebrow" data-i18n="flash.kicker">Flash</span>
+        <h2 data-i18n="flash.title">No toolchain. Just a USB cable.</h2>
+        <p class="lede" data-i18n="flash.sub">Install the latest firmware from this page with Chrome or Edge on a computer. Prefer to build it yourself? It's one <code>pio run</code> away.</p>
       </div>
       <ul class="checks">
-        <li><span>Disconnect the TP4056 <code>OUT+</code> wire, then plug the XIAO into your computer.</span></li>
-        <li><span>Click <b>Connect &amp; install</b>, pick the serial port, and choose to erase the device on a first install.</span></li>
-        <li><span>After a few seconds the LED blinks slowly: open <i>Permit join</i> in Zigbee2MQTT.</span></li>
+        <li><span data-i18n="flash.c1">Disconnect the TP4056 <code>OUT+</code> wire, then plug the XIAO into your computer.</span></li>
+        <li><span data-i18n="flash.c2">Click <b>Connect &amp; install</b>, pick the serial port, and choose to erase the device on a first install.</span></li>
+        <li><span data-i18n="flash.c3">After a few seconds the LED blinks slowly: open <i>Permit join</i> in Zigbee2MQTT.</span></li>
       </ul>
     </div>
     <div class="flash-card">
-      <h3>XIAO ESP32-C6 firmware</h3>
-      <p>Zigbee router, pulse counter on D2, optional BME280. Calibration and total stay on the device across updates; only a full erase resets them.</p>
+      <h3 data-i18n="flash.card.title">XIAO ESP32-C6 firmware</h3>
+      <p data-i18n="flash.card.text">Zigbee router, pulse counter on D2, optional BME280. Calibration and total stay on the device across updates; only a full erase resets them.</p>
       <div>
         <esp-web-install-button manifest="firmware/manifest.json">
           <button slot="activate" class="btn btn-primary">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-            Connect &amp; install
+            <span data-i18n="flash.card.button">Connect &amp; install</span>
           </button>
-          <span slot="unsupported" class="unsupported">Your browser doesn't support Web Serial. Open this page in Chrome or Edge on a computer.</span>
-          <span slot="not-allowed" class="unsupported">Web Serial needs a secure (https) page.</span>
+          <span slot="unsupported" class="unsupported" data-i18n="flash.card.unsupported">Your browser doesn't support Web Serial. Open this page in Chrome or Edge on a computer.</span>
+          <span slot="not-allowed" class="unsupported" data-i18n="flash.card.notAllowed">Web Serial needs a secure (https) page.</span>
         </esp-web-install-button>
       </div>
-      <div class="version">firmware · __FIRMWARE_VERSION__ · XIAO ESP32-C6 · Zigbee router</div>
+      <div class="version">firmware · __FIRMWARE_VERSION__ · XIAO ESP32-C6 · <span data-i18n="hero.spec.router">Zigbee router</span></div>
     </div>
   </div>
 </section>
@@ -663,13 +679,13 @@
 <section id="build">
   <div class="wrap">
     <div class="sec-head">
-      <span class="eyebrow">Build</span>
-      <h2>About €25 of parts and an afternoon.</h2>
-      <p class="lede">The TP4056 charges the cell and powers everything from it, so the meter doesn't even notice a power cut.</p>
+      <span class="eyebrow" data-i18n="build.kicker">Build</span>
+      <h2 data-i18n="build.title">About €25 of parts and an afternoon.</h2>
+      <p class="lede" data-i18n="build.sub">The TP4056 charges the cell and powers everything from it, so the meter doesn't even notice a power cut.</p>
     </div>
     <div class="wiring">
       <div class="diagram">
-        <svg viewBox="0 0 640 400" role="img" aria-label="Wiring: a USB charger feeds the TP4056 module, which charges the 18650 and powers the XIAO and the Hall sensor; the sensor's yellow wire reaches D2 through a diode with a 10 kilo-ohm pull-up; an optional BME280 connects over I2C">
+        <svg viewBox="0 0 640 400" role="img" aria-label="Wiring: a USB charger feeds the TP4056 module, which charges the 18650 and powers the XIAO and the Hall sensor; the sensor's yellow wire reaches D2 through a diode with a 10 kilo-ohm pull-up; an optional BME280 connects over I2C" data-i18n-attr="aria-label:build.d.label">
           <defs>
             <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" fill="var(--muted)"/></marker>
           </defs>
@@ -687,12 +703,12 @@
           </g>
 
           <rect class="box" x="20" y="20" width="120" height="70" rx="12"/>
-          <text class="lbl" x="80" y="51" text-anchor="middle">USB charger</text>
+          <text class="lbl" x="80" y="51" text-anchor="middle" data-i18n="build.d.usb">USB charger</text>
           <text class="sub" x="80" y="72" text-anchor="middle">5 V · 1 A</text>
 
           <rect class="box" x="190" y="30" width="150" height="85" rx="12"/>
           <text class="lbl" x="265" y="66" text-anchor="middle">TP4056</text>
-          <text class="sub" x="265" y="88" text-anchor="middle">with protection</text>
+          <text class="sub" x="265" y="88" text-anchor="middle" data-i18n="build.d.protection">with protection</text>
 
           <rect class="box" x="20" y="135" width="120" height="110" rx="12"/>
           <text class="lbl" x="80" y="186" text-anchor="middle">18650</text>
@@ -702,44 +718,44 @@
           <text class="lbl" x="525" y="66" text-anchor="middle">XIAO ESP32-C6</text>
           <text class="sub" x="525" y="90" text-anchor="middle">5V · GND · D2</text>
           <text class="sub" x="525" y="110" text-anchor="middle">D7 · D8 (I2C)</text>
-          <text class="sub" x="525" y="130" text-anchor="middle">U.FL antenna</text>
+          <text class="sub" x="525" y="130" text-anchor="middle" data-i18n="build.d.antenna">U.FL antenna</text>
 
           <rect class="box" x="190" y="250" width="180" height="80" rx="14"/>
-          <text class="lbl" x="280" y="284" text-anchor="middle">Hall sensor</text>
+          <text class="lbl" x="280" y="284" text-anchor="middle" data-i18n="build.d.hall">Hall sensor</text>
           <text class="sub" x="280" y="306" text-anchor="middle">G3/4 · 1–30 L/min</text>
 
           <rect class="box" x="520" y="280" width="110" height="70" rx="14" stroke-dasharray="6 5"/>
           <text class="lbl" x="575" y="311" text-anchor="middle">BME280</text>
-          <text class="sub" x="575" y="331" text-anchor="middle">optional</text>
+          <text class="sub" x="575" y="331" text-anchor="middle" data-i18n="build.d.optional">optional</text>
 
           <text class="sub" x="385" y="58" text-anchor="middle">3.0–4.2 V</text>
-          <text class="sub" x="300" y="190">red / black</text>
+          <text class="sub" x="300" y="190" data-i18n="build.d.redblack">red / black</text>
           <text class="sub" x="416" y="322" text-anchor="middle">BAT85</text>
-          <text class="sub" x="440" y="278">yellow</text>
-          <text class="sub" x="470" y="200" text-anchor="end">to D2</text>
-          <text class="sub" x="470" y="220" text-anchor="end">10 kΩ to 3V3</text>
-          <text class="sub" x="320" y="385" text-anchor="middle">diode bar towards the sensor · dashed = optional</text>
+          <text class="sub" x="440" y="278" data-i18n="build.d.yellow">yellow</text>
+          <text class="sub" x="470" y="200" text-anchor="end" data-i18n="build.d.toD2">to D2</text>
+          <text class="sub" x="470" y="220" text-anchor="end" data-i18n="build.d.pullup">10 kΩ to 3V3</text>
+          <text class="sub" x="320" y="385" text-anchor="middle" data-i18n="build.d.legend">diode bar towards the sensor · dashed = optional</text>
         </svg>
       </div>
       <div class="warn" role="note">
-        <b>Check the pulse voltage first.</b>
-        <p>ESP32-C6 pins take 3.6&nbsp;V at most, and many Hall sensors pull their signal up to their own supply. A Schottky diode (bar towards the sensor) and a 10&nbsp;kΩ pull-up to 3V3 make any sensor safe. <a href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/01-hardware-and-wiring.md#the-pulse-signal-read-this-before-wiring">Why and how</a></p>
-        <p>To flash over USB, disconnect the TP4056 <code>OUT+</code> wire first: the XIAO's <code>5V</code> pin is its USB port.</p>
+        <b data-i18n="build.w.title">Check the pulse voltage first.</b>
+        <p><span data-i18n="build.w.text">ESP32-C6 pins take 3.6&nbsp;V at most, and many Hall sensors pull their signal up to their own supply. A Schottky diode (bar towards the sensor) and a 10&nbsp;kΩ pull-up to 3V3 make any sensor safe.</span> <a href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/01-hardware-and-wiring.md#the-pulse-signal-read-this-before-wiring" data-doc="01-hardware-and-wiring.md" data-anchor="signal" data-i18n="build.w.link">Why and how</a></p>
+        <p data-i18n="build.w.flash">To flash over USB, disconnect the TP4056 <code>OUT+</code> wire first: the XIAO's <code>5V</code> pin is its USB port.</p>
       </div>
     </div>
 
     <div class="table-wrap" style="margin-top:28px">
       <table>
-        <thead><tr><th>Part</th><th>Role</th><th>Notes</th></tr></thead>
+        <thead><tr><th data-i18n="bom.part">Part</th><th data-i18n="bom.role">Role</th><th data-i18n="bom.notes">Notes</th></tr></thead>
         <tbody>
-          <tr><td>Seeed XIAO ESP32-C6</td><td>Zigbee radio + MCU</td><td>The firmware switches to the external antenna</td></tr>
-          <tr><td>2.4 GHz U.FL antenna</td><td>Range from a utility room</td><td>Pipes and metal eat 2.4 GHz</td></tr>
-          <tr><td>G3/4 Hall flow sensor</td><td>The sensor</td><td>1–30 L/min, ~490 pulses/L to start with</td></tr>
-          <tr><td>TP4056 USB-C module</td><td>Charging and power</td><td>The 6-pin version with protection (<code>B±</code> and <code>OUT±</code>)</td></tr>
-          <tr><td>18650 cell + holder</td><td>Backup</td><td>One to two days without USB</td></tr>
-          <tr><td>BAT85 diode + 10 kΩ</td><td>Safe pulse signal</td><td>A few cents</td></tr>
-          <tr><td>BME280<span class="opt">optional</span></td><td>Temperature, humidity, pressure</td><td>I2C, address 0x76 or 0x77</td></tr>
-          <tr><td>2 × 100 kΩ + 100 nF<span class="opt">optional</span></td><td>Battery voltage</td><td>Enables the on-battery alert</td></tr>
+          <tr><td>Seeed XIAO ESP32-C6</td><td data-i18n="bom.r1.role">Zigbee radio + MCU</td><td data-i18n="bom.r1.notes">The firmware switches to the external antenna</td></tr>
+          <tr><td data-i18n="bom.r2.part">2.4 GHz U.FL antenna</td><td data-i18n="bom.r2.role">Range from a utility room</td><td data-i18n="bom.r2.notes">Pipes and metal eat 2.4 GHz</td></tr>
+          <tr><td data-i18n="bom.r3.part">G3/4 Hall flow sensor</td><td data-i18n="bom.r3.role">The sensor</td><td data-i18n="bom.r3.notes">1–30 L/min, ~490 pulses/L to start with</td></tr>
+          <tr><td data-i18n="bom.r4.part">TP4056 USB-C module</td><td data-i18n="bom.r4.role">Charging and power</td><td data-i18n="bom.r4.notes">The 6-pin version with protection (<code>B±</code> and <code>OUT±</code>)</td></tr>
+          <tr><td data-i18n="bom.r5.part">18650 cell + holder</td><td data-i18n="bom.r5.role">Backup</td><td data-i18n="bom.r5.notes">One to two days without USB</td></tr>
+          <tr><td data-i18n="bom.r6.part">BAT85 diode + 10 kΩ</td><td data-i18n="bom.r6.role">Safe pulse signal</td><td data-i18n="bom.r6.notes">A few cents</td></tr>
+          <tr><td>BME280<span class="opt" data-i18n="build.d.optional">optional</span></td><td data-i18n="bom.r7.role">Temperature, humidity, pressure</td><td data-i18n="bom.r7.notes">I2C, address 0x76 or 0x77</td></tr>
+          <tr><td>2 × 100 kΩ + 100 nF<span class="opt" data-i18n="build.d.optional">optional</span></td><td data-i18n="bom.r8.role">Battery voltage</td><td data-i18n="bom.r8.notes">Enables the on-battery alert</td></tr>
         </tbody>
       </table>
     </div>
@@ -749,33 +765,33 @@
 <section id="faq" class="alt">
   <div class="wrap">
     <div class="sec-head">
-      <span class="eyebrow">FAQ</span>
-      <h2>Good questions.</h2>
+      <span class="eyebrow" data-i18n="faq.kicker">FAQ</span>
+      <h2 data-i18n="faq.title">Good questions.</h2>
     </div>
     <div class="faq">
       <details>
-        <summary>Does it lose water while the network or Home Assistant is down?</summary>
-        <div><p>No. Counting is done by hardware and the total is kept on the device. When the network comes back, Home Assistant gets the new total, and <code>total_increasing</code> statistics catch up on their own.</p></div>
+        <summary data-i18n="faq.offline.q">Does it lose water while the network or Home Assistant is down?</summary>
+        <div><p data-i18n="faq.offline.a">No. Counting is done by hardware and the total is kept on the device. When the network comes back, Home Assistant gets the new total, and <code>total_increasing</code> statistics catch up on their own.</p></div>
       </details>
       <details>
-        <summary>Can it run on the battery alone?</summary>
-        <div><p>Not for long. The Hall sensor draws 5–15&nbsp;mA all the time and a router never sleeps, so an 18650 lasts one to two days. The battery is there to ride through power cuts.</p></div>
+        <summary data-i18n="faq.battery.q">Can it run on the battery alone?</summary>
+        <div><p data-i18n="faq.battery.a">Not for long. The Hall sensor draws 5–15&nbsp;mA all the time and a router never sleeps, so an 18650 lasts one to two days. The battery is there to ride through power cuts.</p></div>
       </details>
       <details>
-        <summary>Can I match it to my utility meter's reading?</summary>
-        <div><p>Yes. Publish the reading in litres once, for example <code>{"water_consumed": 254318}</code> to <code>zigbee2mqtt/water_meter/set</code>. Use 0 to reset.</p></div>
+        <summary data-i18n="faq.align.q">Can I match it to my utility meter's reading?</summary>
+        <div><p data-i18n="faq.align.a">Yes. Publish the reading in litres once, for example <code>{"water_consumed": 254318}</code> to <code>zigbee2mqtt/water_meter/set</code>. Use 0 to reset.</p></div>
       </details>
       <details>
-        <summary>Will my history move if I recalibrate?</summary>
-        <div><p>No. A new <code>pulses_per_liter</code> applies only to the water counted from then on.</p></div>
+        <summary data-i18n="faq.recal.q">Will my history move if I recalibrate?</summary>
+        <div><p data-i18n="faq.recal.a">No. A new <code>pulses_per_liter</code> applies only to the water counted from then on.</p></div>
       </details>
       <details>
-        <summary>Why Zigbee and not ESPHome over WiFi?</summary>
-        <div><p>No credentials, no IP address, no API key: it joins the mesh your other sensors already use and keeps working when the WiFi doesn't. You give up WiFi OTA updates and the web UI; updates go over USB, which is rare once it's calibrated.</p></div>
+        <summary data-i18n="faq.zigbee.q">Why Zigbee and not ESPHome over WiFi?</summary>
+        <div><p data-i18n="faq.zigbee.a">No credentials, no IP address, no API key: it joins the mesh your other sensors already use and keeps working when the WiFi doesn't. You give up WiFi OTA updates and the web UI; updates go over USB, which is rare once it's calibrated.</p></div>
       </details>
       <details>
-        <summary>Will it see a dripping tap?</summary>
-        <div><p>Sometimes. A 1–30 L/min turbine may not spin below about 1&nbsp;L/min. The <b>night usage</b> alert catches slow leaks anyway, because even a few litres over five hours add up on the total.</p></div>
+        <summary data-i18n="faq.drip.q">Will it see a dripping tap?</summary>
+        <div><p data-i18n="faq.drip.a">Sometimes. A 1–30 L/min turbine may not spin below about 1&nbsp;L/min. The <b>night usage</b> alert catches slow leaks anyway, because even a few litres over five hours add up on the total.</p></div>
       </details>
     </div>
   </div>
@@ -784,46 +800,118 @@
 <section id="docs">
   <div class="wrap">
     <div class="sec-head">
-      <span class="eyebrow">Docs</span>
-      <h2>Everything, step by step.</h2>
+      <span class="eyebrow" data-i18n="docs.kicker">Docs</span>
+      <h2 data-i18n="docs.title">Everything, step by step.</h2>
     </div>
     <div class="docs">
-      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/01-hardware-and-wiring.md"><span class="n">01</span><b>Hardware &amp; wiring</b><span>Power path, the signal pitfall, connection table</span></a>
-      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/02-build-guide.md"><span class="n">02</span><b>Step-by-step build</b><span>Bench test, plumbing, enclosure, final checks</span></a>
-      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/03-firmware.md"><span class="n">03</span><b>Firmware</b><span>Flashing, endpoints, calibration, battery sensing</span></a>
-      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/04-zigbee2mqtt-and-home-assistant.md"><span class="n">04</span><b>Zigbee2MQTT &amp; HA</b><span>Converter, entities, Energy, the package</span></a>
-      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/05-troubleshooting.md"><span class="n">05</span><b>Troubleshooting</b><span>Symptoms, causes and fixes</span></a>
+      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/01-hardware-and-wiring.md" data-doc="01-hardware-and-wiring.md"><span class="n">01</span><b data-i18n="docs.d1.title">Hardware &amp; wiring</b><span data-i18n="docs.d1.text">Power path, the signal pitfall, connection table</span></a>
+      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/02-build-guide.md" data-doc="02-build-guide.md"><span class="n">02</span><b data-i18n="docs.d2.title">Step-by-step build</b><span data-i18n="docs.d2.text">Bench test, plumbing, enclosure, final checks</span></a>
+      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/03-firmware.md" data-doc="03-firmware.md"><span class="n">03</span><b>Firmware</b><span data-i18n="docs.d3.text">Flashing, endpoints, calibration, battery sensing</span></a>
+      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/04-zigbee2mqtt-and-home-assistant.md" data-doc="04-zigbee2mqtt-and-home-assistant.md"><span class="n">04</span><b>Zigbee2MQTT &amp; HA</b><span data-i18n="docs.d4.text">Converter, entities, Energy, the package</span></a>
+      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/05-troubleshooting.md" data-doc="05-troubleshooting.md"><span class="n">05</span><b data-i18n="docs.d5.title">Troubleshooting</b><span data-i18n="docs.d5.text">Symptoms, causes and fixes</span></a>
     </div>
   </div>
 </section>
 
 <section class="final alt">
   <div class="wrap">
-    <h2>Find the leak before the bill does.</h2>
-    <p class="lede">Open source, MIT licensed, built from parts you can order today.</p>
+    <h2 data-i18n="final.title">Find the leak before the bill does.</h2>
+    <p class="lede" data-i18n="final.sub">Open source, MIT licensed, built from parts you can order today.</p>
     <div class="cta">
-      <a class="btn btn-primary" href="#flash">Flash the firmware</a>
-      <a class="btn btn-ghost" href="https://github.com/mmornati/water-flow-meter-zigbee">Star it on GitHub</a>
+      <a class="btn btn-primary" href="#flash" data-i18n="final.flash">Flash the firmware</a>
+      <a class="btn btn-ghost" href="https://github.com/mmornati/water-flow-meter-zigbee" data-i18n="final.star">Star it on GitHub</a>
     </div>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    <span>MIT © Marco Mornati · Not affiliated with Seeed Studio, Espressif, Zigbee2MQTT or Home Assistant.</span>
-    <span><a href="https://github.com/mmornati/water-flow-meter-zigbee/releases">Releases</a> · <a href="https://github.com/mmornati/reed-contact-zigbee">Also: Reed Contact Zigbee</a></span>
+    <span><span data-i18n="footer.license">MIT</span> © Marco Mornati · <span data-i18n="footer.disclaimer">Not affiliated with Seeed Studio, Espressif, Zigbee2MQTT or Home Assistant.</span></span>
+    <span><a href="https://github.com/mmornati/water-flow-meter-zigbee/releases" data-i18n="footer.releases">Releases</a> · <a href="https://github.com/mmornati/reed-contact-zigbee" data-i18n="footer.also">Also: Reed Contact Zigbee</a></span>
   </div>
 </footer>
 
-<script>
-(() => {
+<script type="module">
+  import {translations, SUPPORTED} from './i18n.js';
+
+  /* ---------- Language ---------- */
+  const REPO = 'https://github.com/mmornati/water-flow-meter-zigbee/blob/main/';
+  // The pulse-signal heading in each language's docs/01 (GitHub anchor).
+  const SIGNAL_ANCHOR = {
+    en: 'the-pulse-signal-read-this-before-wiring',
+    fr: translations.fr['anchor.signal'],
+    it: translations.it['anchor.signal'],
+  };
+  const english = {};
+  const englishAttrs = [];
+  const metaDescription = document.querySelector('meta[name="description"]');
+  english['meta.description'] = metaDescription.content;
+  for (const el of document.querySelectorAll('[data-i18n]')) {
+    english[el.dataset.i18n] ??= el.innerHTML;
+  }
+  for (const el of document.querySelectorAll('[data-i18n-attr]')) {
+    const [attr, key] = el.dataset.i18nAttr.split(':');
+    english[key] ??= el.getAttribute(attr);
+    englishAttrs.push({el, attr, key});
+  }
+  english['js.odo'] = 'Total water {v} cubic metres';
+
+  let lang = 'en';
+  const t = (key) => (lang !== 'en' && translations[lang][key]) || english[key];
+  const LOCALE = {en: 'en-US', fr: 'fr-FR', it: 'it-IT'};
+  const fmt = (n, d) => n.toLocaleString(LOCALE[lang], {minimumFractionDigits: d, maximumFractionDigits: d});
+
+  function pickInitialLanguage() {
+    const fromUrl = new URLSearchParams(location.search).get('lang');
+    if (SUPPORTED.includes(fromUrl)) return fromUrl;
+    try {
+      const saved = localStorage.getItem('lang');
+      if (SUPPORTED.includes(saved)) return saved;
+    } catch (e) { /* storage unavailable */ }
+    for (const l of navigator.languages || [navigator.language]) {
+      const short = (l || '').slice(0, 2).toLowerCase();
+      if (SUPPORTED.includes(short)) return short;
+    }
+    return 'en';
+  }
+
+  function applyLanguage(next, {remember = false} = {}) {
+    lang = next;
+    document.documentElement.lang = lang;
+    for (const el of document.querySelectorAll('[data-i18n]')) el.innerHTML = t(el.dataset.i18n);
+    for (const {el, attr, key} of englishAttrs) el.setAttribute(attr, t(key));
+    metaDescription.content = t('meta.description');
+    for (const a of document.querySelectorAll('[data-doc]')) {
+      const anchor = a.dataset.anchor === 'signal' ? '#' + SIGNAL_ANCHOR[lang] : '';
+      a.href = REPO + 'docs/' + (lang === 'en' ? '' : lang + '/') + a.dataset.doc + anchor;
+    }
+    for (const a of document.querySelectorAll('[data-readme]')) {
+      a.href = lang === 'en' ? 'https://github.com/mmornati/water-flow-meter-zigbee#readme' : REPO + 'README.' + lang + '.md';
+    }
+    for (const b of document.querySelectorAll('.lang button')) {
+      b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+    }
+    $('ha-month').textContent = fmt(4.82, 2);
+    if (remember) {
+      try { localStorage.setItem('lang', lang); } catch (e) { /* storage unavailable */ }
+      const url = new URL(location.href);
+      if (lang === 'en') url.searchParams.delete('lang'); else url.searchParams.set('lang', lang);
+      history.replaceState(null, '', url);
+    }
+  }
+
+  for (const b of document.querySelectorAll('.lang button')) {
+    b.addEventListener('click', () => applyLanguage(b.dataset.lang, {remember: true}));
+  }
+
+  /* ---------- Live demo ---------- */
   const PPL = 490;               // pulses per litre, firmware default
   const REPORT_MS = 5000;        // firmware REPORT_MIN_INTERVAL_MS
   const HEARTBEAT_MS = 300000;
   const START_LITRES = 254318.0; // the dial starts at a believable reading
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const $ = (id) => document.getElementById(id);
+  function $(id) { return document.getElementById(id); }
   const tap = $('tap');
   const presets = [...document.querySelectorAll('.presets button')];
 
@@ -871,7 +959,7 @@
       }
       strip.style.transform = `translateY(${(-pos / 11) * 100}%)`;
     }
-    odo.setAttribute('aria-label', `Total water ${(litres / 1000).toFixed(3)} cubic metres`);
+    odo.setAttribute('aria-label', t('js.odo').replace('{v}', fmt(litres / 1000, 3)));
   }
 
   // State
@@ -886,7 +974,7 @@
   const window5 = [];      // [pulses, ms] per second, like FlowMeter::WINDOW
   let secAcc = 0, secPulses = 0, lastPulseInt = 0;
   let measuredFlow = 0;
-  const history = new Array(60).fill(0);
+  const flowHistory = new Array(60).fill(0);
 
   function setFlow(v, fromSlider) {
     flow = Math.max(0, Math.min(30, Number(v)));
@@ -896,8 +984,7 @@
   tap.addEventListener('input', () => setFlow(tap.value, true));
   presets.forEach((b) => b.addEventListener('click', () => setFlow(b.dataset.flow)));
 
-  const fmt = (n, d) => n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
-
+  // The MQTT payload is JSON: always a dot as decimal separator, whatever the language.
   function renderPayload() {
     $('payload').innerHTML =
       `{\n  <span class="k">"flow"</span>: <span class="n">${reportedFlow.toFixed(2)}</span>,\n` +
@@ -916,8 +1003,8 @@
   }
 
   function renderSpark() {
-    const max = Math.max(10, ...history);
-    $('spark').setAttribute('points', history.map((v, i) => `${(i / 59) * 120},${36 - (v / max) * 32}`).join(' '));
+    const max = Math.max(10, ...flowHistory);
+    $('spark').setAttribute('points', flowHistory.map((v, i) => `${(i / 59) * 120},${36 - (v / max) * 32}`).join(' '));
   }
 
   let last = performance.now();
@@ -941,7 +1028,7 @@
       const sp = window5.reduce((a, w) => a + w[0], 0);
       const sm = window5.reduce((a, w) => a + w[1], 0);
       measuredFlow = sp === 0 ? 0 : (sp / PPL) * (60000 / sm);
-      history.push(measuredFlow); history.shift();
+      flowHistory.push(measuredFlow); flowHistory.shift();
       renderSpark();
       secAcc = 0; secPulses = 0;
 
@@ -964,11 +1051,11 @@
     requestAnimationFrame(tick);
   }
 
+  applyLanguage(pickInitialLanguage());
   renderOdo(litres);
   renderPayload();
   setFlow(reduce ? 0 : 9);
-  requestAnimationFrame((t) => { last = t; report(t); tick(t); });
-})();
+  requestAnimationFrame((t0) => { last = t0; report(t0); tick(t0); });
 </script>
 </body>
 </html>

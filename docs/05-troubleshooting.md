@@ -1,5 +1,7 @@
 # 05 · Troubleshooting
 
+🌐 **English** · [Français](fr/05-troubleshooting.md) · [Italiano](it/05-troubleshooting.md)
+
 Start with the serial monitor (`pio device monitor`, [TP4056 `OUT+` disconnected](01-hardware-and-wiring.md#connection-table)): the firmware logs the calibration, every report and every flash write.
 
 ## The LED keeps blinking slowly

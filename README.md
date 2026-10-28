@@ -16,6 +16,8 @@ Seeed XIAO ESP32-C6 + a G3/4 Hall flow sensor + an 18650 backup · Zigbee2MQTT &
 
 [**🌐 Website**](https://mmornati.github.io/water-flow-meter-zigbee/) · [**⚡ Flash in your browser**](https://mmornati.github.io/water-flow-meter-zigbee/#flash) · [**📖 Build guide**](docs/01-hardware-and-wiring.md) · [**📦 Releases**](https://github.com/mmornati/water-flow-meter-zigbee/releases)
 
+🌐 **English** · [Français](README.fr.md) · [Italiano](README.it.md)
+
 </div>
 
 ---

@@ -1,5 +1,7 @@
 # 03 · Firmware
 
+🌐 **English** · [Français](fr/03-firmware.md) · [Italiano](it/03-firmware.md)
+
 ## Build and flash
 
 ### PlatformIO (recommended)

@@ -1,5 +1,7 @@
 # 02 · Step-by-step build
 
+🌐 **English** · [Français](fr/02-build-guide.md) · [Italiano](it/02-build-guide.md)
+
 ## 1. Bench test first
 
 Before anything goes near a pipe:

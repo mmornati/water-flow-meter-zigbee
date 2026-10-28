@@ -1,5 +1,7 @@
 # 04 · Zigbee2MQTT & Home Assistant
 
+🌐 **English** · [Français](fr/04-zigbee2mqtt-and-home-assistant.md) · [Italiano](it/04-zigbee2mqtt-and-home-assistant.md)
+
 ## Install the converter
 
 1. Copy [`zigbee2mqtt/water_flow_meter.mjs`](../zigbee2mqtt/water_flow_meter.mjs) to `<z2m data dir>/external_converters/water_flow_meter.mjs`.

@@ -1,5 +1,7 @@
 # 01 · Hardware & wiring
 
+🌐 **English** · [Français](fr/01-hardware-and-wiring.md) · [Italiano](it/01-hardware-and-wiring.md)
+
 ## Parts
 
 | Part | Role | Notes |
