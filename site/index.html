@@ -1,0 +1,982 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Water Flow Meter Zigbee</title>
+  <meta name="description" content="A DIY Zigbee water flow meter on the Seeed XIAO ESP32-C6. Live flow in L/min, a total for the Home Assistant Energy dashboard, leak alerts, an 18650 backup for power cuts. Flash it from your browser.">
+  <meta property="og:title" content="Water Flow Meter Zigbee: every litre, accounted for">
+  <meta property="og:description" content="XIAO ESP32-C6 + a G3/4 Hall sensor. Flow, total, leak alerts and calibration in Home Assistant, over Zigbee2MQTT. No WiFi, no cloud.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#f3efe6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b1620" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23102a3c'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23f3efe6' stroke-width='2'/%3E%3Cpath d='M16 16 L21 11' stroke='%23e0452f' stroke-width='2.4' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='16' r='2' fill='%23f3efe6'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,500;75..125,600;75..125,800&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module" integrity="sha384-f+fR3K1mnKB2tVps4hdEh+qJvLgH2bKw81Yn+eNE3+gE8YpqocjkxQON4k19I3e/" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --paper: #f3efe6;
+      --paper-2: #ebe5d8;
+      --card: #fbf9f4;
+      --ink: #102a3c;
+      --ink-2: #2c4659;
+      --muted: #5b6f7d;
+      --line: #d8d0bf;
+      --line-2: #c7bda8;
+      --water: #0b7fb8;
+      --water-2: #36a9dc;
+      --water-soft: #d7ecf5;
+      --red: #e0452f;
+      --red-ink: #b8301d;
+      --brass: #a57c2c;
+      --ok: #23885a;
+      --face: #fffdf8;
+      --wheel: #14171a;
+      --wheel-text: #f6f2e8;
+      --shadow: 0 1px 0 rgba(0, 0, 0, .03), 0 18px 40px -24px rgba(0, 0, 0, .28);
+      --radius: 16px;
+      --maxw: 1160px;
+      --font: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --display: "Archivo", var(--font);
+      --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper: #0b1620;
+        --paper-2: #0f1d29;
+        --card: #122333;
+        --ink: #eef1ec;
+        --ink-2: #c9d4d8;
+        --muted: #8fa3ae;
+        --line: #1f3546;
+        --line-2: #2b465a;
+        --water: #4bb8ea;
+        --water-2: #7fd0f3;
+        --water-soft: #12344a;
+        --red: #ff6a52;
+        --red-ink: #ff8a76;
+        --brass: #d1a650;
+        --ok: #4fd08f;
+        --face: #f4f0e6;
+        --shadow: 0 1px 0 rgba(0, 0, 0, .2), 0 18px 40px -24px rgba(0, 0, 0, .8);
+        color-scheme: dark;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 16px/1.6 var(--font);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    a { color: var(--water); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    code, pre, .mono { font-family: var(--mono); }
+    code { font-size: .88em; background: var(--paper-2); padding: 1px 6px; border-radius: 6px; }
+    .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 16px; }
+    @media (min-width: 720px) { .wrap { padding: 0 32px; } }
+    h1, h2, h3 { font-family: var(--display); font-stretch: 85%; letter-spacing: -.01em; margin: 0; line-height: 1.04; }
+    h2 { font-size: clamp(32px, 5vw, 52px); font-weight: 800; }
+    h3 { font-size: 20px; font-weight: 600; font-stretch: 95%; line-height: 1.25; }
+    p { margin: 0; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      font: 700 12px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--water);
+    }
+    .eyebrow::before { content: ""; width: 18px; height: 2px; background: currentColor; }
+    .lede { font-size: 18px; color: var(--ink-2); max-width: 60ch; }
+    :focus-visible { outline: 2px solid var(--water); outline-offset: 3px; border-radius: 6px; }
+
+    /* ---------- Nav ---------- */
+    nav.top {
+      position: sticky; top: 0; z-index: 20;
+      background: color-mix(in srgb, var(--paper) 86%, transparent);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+    }
+    nav.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 62px; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font: 800 17px var(--display); font-stretch: 90%; }
+    .brand svg { width: 28px; height: 28px; flex: none; }
+    nav.top ul { display: none; list-style: none; gap: 26px; margin: 0; padding: 0; }
+    nav.top ul a { color: var(--ink-2); font-size: 14px; font-weight: 500; text-decoration: none; }
+    nav.top ul a:hover { color: var(--water); }
+    @media (min-width: 940px) { nav.top ul { display: flex; } }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 13px 22px; border-radius: 12px; border: 1px solid transparent;
+      font: 600 15px var(--font); cursor: pointer; text-decoration: none;
+      transition: transform .15s ease, background .2s ease, border-color .2s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary { background: var(--ink); color: var(--paper); }
+    .btn-primary:hover { background: var(--ink-2); }
+    .btn-ghost { background: transparent; color: var(--ink); border-color: var(--line-2); }
+    .btn-ghost:hover { border-color: var(--ink); }
+    .btn-sm { padding: 8px 14px; font-size: 14px; border-radius: 10px; }
+    .btn svg { width: 18px; height: 18px; flex: none; }
+    @media (max-width: 480px) { .gh-label { display: none; } }
+
+    /* ---------- Hero ---------- */
+    header.hero { padding: 64px 0 72px; position: relative; }
+    header.hero::before {
+      content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+      background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+      background-size: 32px 32px; opacity: .45;
+      mask-image: radial-gradient(ellipse at 70% 30%, black, transparent 70%);
+    }
+    .hero-grid { display: grid; gap: 48px; align-items: center; }
+    @media (min-width: 1000px) { .hero-grid { grid-template-columns: 1fr 1.02fr; gap: 56px; } }
+    .hero h1 { font-size: clamp(48px, 8.4vw, 92px); font-weight: 800; font-stretch: 78%; margin: 18px 0 22px; }
+    .hero h1 .r { color: var(--red); }
+    .hero .lede { margin-bottom: 30px; }
+    .cta { display: flex; flex-wrap: wrap; gap: 12px; }
+    .specs { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 30px; padding: 0; list-style: none; color: var(--muted); font: 500 13px var(--mono); }
+    .specs li::before { content: "■ "; color: var(--water); font-size: 10px; vertical-align: 2px; }
+
+    /* ---------- Meter demo ---------- */
+    .demo {
+      background: var(--card); border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow);
+      padding: 18px; display: grid; gap: 16px;
+    }
+    .demo-head { display: flex; justify-content: space-between; align-items: center; font: 600 12px var(--mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+    .net { display: inline-flex; align-items: center; gap: 8px; }
+    .net i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+    .meter { display: grid; gap: 14px; }
+    @media (min-width: 560px) { .meter { grid-template-columns: 1.15fr 1fr; align-items: center; } }
+
+    .dial {
+      position: relative; aspect-ratio: 1; max-width: 300px; width: 100%; margin: 0 auto;
+      border-radius: 50%; padding: 12px;
+      background: conic-gradient(from 210deg, #c79a45, #8a6420, #e2bd6b, #8a6420, #c79a45);
+      box-shadow: inset 0 2px 4px rgba(255,255,255,.4), 0 14px 30px -18px rgba(0,0,0,.6);
+    }
+    .dial-face {
+      position: relative; width: 100%; height: 100%; border-radius: 50%;
+      background: radial-gradient(circle at 50% 40%, #fffefb, var(--face) 60%, #e9e2d2);
+      color: #102a3c; display: grid; place-items: center; overflow: hidden; container-type: size;
+      box-shadow: inset 0 3px 10px rgba(0,0,0,.25);
+    }
+    .dial-face svg.ticks { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .dial-unit { position: absolute; top: 20%; font: 700 4.6cqw var(--mono); letter-spacing: .2em; color: #5b6f7d; }
+    .odo { position: absolute; top: 31%; display: flex; gap: 1.2cqw; padding: 2cqw; background: #2b2f33; border-radius: 3cqw; box-shadow: inset 0 2px 4px rgba(0,0,0,.6); }
+    .wheel { width: 7.4cqw; height: 11.5cqw; overflow: hidden; background: var(--wheel); border-radius: 1cqw; position: relative; }
+    .wheel.red { background: #9e2416; }
+    .wheel::after { content: ""; position: absolute; inset: 0; background: linear-gradient(rgba(0,0,0,.55), transparent 35%, transparent 65%, rgba(0,0,0,.55)); pointer-events: none; }
+    .wheel .strip { display: flex; flex-direction: column; will-change: transform; }
+    .wheel .strip span { height: 11.5cqw; line-height: 11.5cqw; text-align: center; font: 700 7.6cqw var(--mono); color: var(--wheel-text); }
+    .odo .dot { width: 1.8cqw; height: 1.8cqw; align-self: flex-end; margin-bottom: 1cqw; background: #f6f2e8; border-radius: 50%; }
+    .rotor { position: absolute; bottom: 11%; width: 30%; aspect-ratio: 1; }
+    .dial-brand { position: absolute; top: 48%; font: 700 3.6cqw var(--mono); letter-spacing: .24em; color: #8a9aa5; }
+
+    .readout { display: grid; gap: 12px; }
+    .stat { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: var(--paper); }
+    .stat .k { font: 600 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+    .stat .v { font: 800 34px var(--display); font-stretch: 80%; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .stat .v small { font: 600 14px var(--mono); color: var(--muted); margin-left: 4px; }
+    .pulse-led { width: 9px; height: 9px; border-radius: 50%; background: var(--line-2); display: inline-block; transition: background .05s; }
+    .pulse-led.on { background: var(--red); }
+    svg.spark { width: 100%; height: 38px; display: block; margin-top: 6px; }
+
+    .tap { display: grid; gap: 10px; }
+    .tap-row { display: flex; align-items: center; gap: 12px; }
+    .tap label { font: 600 12px var(--mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+    input[type=range] { flex: 1; accent-color: var(--water); min-width: 0; }
+    .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+    .presets button {
+      font: 500 13px var(--font); color: var(--ink-2); background: var(--paper); cursor: pointer;
+      border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px;
+    }
+    .presets button:hover { border-color: var(--water); color: var(--water); }
+    .presets button[aria-pressed="true"] { background: var(--water); border-color: var(--water); color: #fff; }
+
+    .payload {
+      font: 500 12.5px/1.65 var(--mono); background: #0d1b26; color: #c8d6dd; border-radius: 12px; padding: 12px 14px;
+      overflow-x: auto; white-space: pre; position: relative;
+    }
+    .payload .c { color: #6f8796; }
+    .payload .k { color: #7fd0f3; }
+    .payload .n { color: #ffcf7a; }
+    .payload .sent { position: absolute; right: 10px; top: 10px; font-size: 11px; color: #4fd08f; opacity: 0; transition: opacity .3s; }
+    .payload .sent.show { opacity: 1; }
+
+    /* ---------- Sections ---------- */
+    section { padding: 88px 0; }
+    section.alt { background: var(--paper-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .sec-head { display: grid; gap: 14px; margin-bottom: 44px; max-width: 760px; }
+
+    .features { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+    @media (min-width: 640px) { .features { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1000px) { .features { grid-template-columns: repeat(4, 1fr); } }
+    .feature { background: var(--card); padding: 26px 22px; display: grid; gap: 10px; align-content: start; }
+    .feature .ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--water-soft); color: var(--water); }
+    .feature .ic svg { width: 20px; height: 20px; }
+    .feature p { color: var(--muted); font-size: 15px; }
+
+    /* How it works */
+    .flow-steps { display: grid; gap: 14px; counter-reset: step; }
+    @media (min-width: 900px) { .flow-steps { grid-template-columns: repeat(5, 1fr); } }
+    .step { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 18px; display: grid; gap: 8px; align-content: start; }
+    .step::before { counter-increment: step; content: "0" counter(step); font: 700 12px var(--mono); color: var(--water); }
+    .step p { color: var(--muted); font-size: 14.5px; }
+    .step .tag { font: 600 12px var(--mono); color: var(--ink-2); background: var(--paper-2); border-radius: 6px; padding: 2px 8px; justify-self: start; }
+    .math {
+      margin-top: 26px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+      font: 600 15px var(--mono); color: var(--ink-2); padding: 16px 20px; border: 1px dashed var(--line-2); border-radius: var(--radius);
+    }
+    .math b { color: var(--red); font-weight: 700; }
+
+    /* Home Assistant */
+    .ha-grid { display: grid; gap: 18px; }
+    @media (min-width: 960px) { .ha-grid { grid-template-columns: 1.1fr 1fr; align-items: start; } }
+    .ha-cards { display: grid; gap: 14px; }
+    @media (min-width: 560px) { .ha-cards { grid-template-columns: 1fr 1fr; } }
+    .ha-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); }
+    .ha-card.wide { grid-column: 1 / -1; }
+    .ha-card h4 { margin: 0 0 10px; font: 600 13px var(--font); color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .ha-card .big { font: 800 30px var(--display); font-stretch: 80%; font-variant-numeric: tabular-nums; }
+    .ha-card .big small { font: 600 13px var(--mono); color: var(--muted); }
+    .bars { display: flex; align-items: flex-end; gap: 5px; height: 96px; margin-top: 10px; }
+    .bars span { flex: 1; background: var(--water); border-radius: 3px 3px 0 0; opacity: .85; }
+    .bars span.today { background: var(--red); }
+    .bars-x { display: flex; gap: 5px; font: 500 10px var(--mono); color: var(--muted); margin-top: 6px; }
+    .bars-x span { flex: 1; text-align: center; }
+    .notif { display: grid; grid-template-columns: 36px 1fr; gap: 12px; align-items: start; }
+    .notif .app { width: 36px; height: 36px; border-radius: 9px; background: #18bcf2; display: grid; place-items: center; }
+    .notif .app svg { width: 20px; height: 20px; }
+    .notif b { font-size: 14px; display: block; }
+    .notif p { font-size: 14px; color: var(--ink-2); }
+    .notif time { font: 500 11px var(--mono); color: var(--muted); }
+    .entities { list-style: none; margin: 0; padding: 0; display: grid; }
+    .entities li { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+    .entities li:last-child { border-bottom: 0; }
+    .entities code { background: none; padding: 0; color: var(--ink-2); font-size: 12.5px; word-break: break-all; }
+    .entities span { font: 600 13px var(--mono); color: var(--water); white-space: nowrap; }
+    .alerts { display: grid; gap: 12px; margin-top: 22px; }
+    .alert { display: grid; grid-template-columns: 26px 1fr; gap: 12px; }
+    .alert .ic { color: var(--red); }
+    .alert .ic svg { width: 22px; height: 22px; }
+    .alert p { color: var(--muted); font-size: 15px; }
+    .alert b { color: var(--ink); }
+
+    /* Calibration */
+    .calib { display: grid; gap: 28px; align-items: center; }
+    @media (min-width: 960px) { .calib { grid-template-columns: 1fr 1fr; } }
+    ol.big-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; counter-reset: s; }
+    ol.big-steps li { display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: start; }
+    ol.big-steps li::before {
+      counter-increment: s; content: counter(s);
+      width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--ink); display: grid; place-items: center;
+      font: 700 16px var(--mono);
+    }
+    ol.big-steps p { color: var(--muted); font-size: 15px; }
+    .formula { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 28px; box-shadow: var(--shadow); text-align: center; display: grid; gap: 18px; }
+    .formula .eq { font: 700 clamp(17px, 2.6vw, 22px) var(--mono); line-height: 1.5; }
+    .formula .eq .frac { display: inline-grid; vertical-align: middle; text-align: center; margin: 0 6px; }
+    .formula .eq .frac span:first-child { border-bottom: 2px solid currentColor; padding: 0 6px 2px; }
+    .formula .eq .frac span:last-child { padding-top: 2px; }
+    .formula .ex { font: 500 14px var(--mono); color: var(--muted); }
+    .formula .ex b { color: var(--red); }
+
+    /* Flash */
+    .flash { display: grid; gap: 28px; align-items: center; }
+    @media (min-width: 960px) { .flash { grid-template-columns: 1fr 1fr; } }
+    .flash-card { background: var(--ink); color: var(--paper); border-radius: 22px; padding: 32px; display: grid; gap: 18px; }
+    .flash-card h3 { font-size: 26px; font-weight: 800; }
+    .flash-card p { color: color-mix(in srgb, var(--paper) 75%, transparent); }
+    .flash-card .btn-primary { background: var(--paper); color: var(--ink); }
+    .flash-card .btn-primary:hover { background: var(--water-soft); }
+    .flash-card .unsupported { color: #ffb3a7; font-size: 14px; }
+    .flash-card .version { font: 500 12px var(--mono); color: color-mix(in srgb, var(--paper) 55%, transparent); }
+    ul.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+    ul.checks li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; color: var(--ink-2); }
+    ul.checks li::before { content: "✓"; color: var(--ok); font-weight: 700; }
+
+    /* Wiring */
+    .wiring { display: grid; gap: 28px; }
+    @media (min-width: 1000px) { .wiring { grid-template-columns: 1.5fr 1fr; align-items: start; } }
+    .diagram { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 16px; box-shadow: var(--shadow); }
+    .diagram svg { width: 100%; height: auto; display: block; }
+    .diagram .lbl { font: 600 17px var(--font); fill: var(--ink); }
+    .diagram .sub { font: 500 13px var(--mono); fill: var(--muted); }
+    .diagram .box { fill: var(--paper); stroke: var(--line-2); stroke-width: 1.5; }
+    .warn { border-left: 4px solid var(--red); background: var(--card); padding: 18px 20px; border-radius: 0 14px 14px 0; display: grid; gap: 8px; }
+    .warn b { color: var(--red-ink); font-family: var(--display); font-size: 18px; font-stretch: 90%; }
+    .warn p { color: var(--ink-2); font-size: 15px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+    th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font: 600 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+    td:first-child { font-weight: 600; }
+    td .opt { font: 500 11px var(--mono); color: var(--water); margin-left: 6px; }
+    .table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+
+    /* FAQ */
+    .faq { display: grid; gap: 10px; max-width: 860px; }
+    details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 0 20px; }
+    summary { cursor: pointer; padding: 18px 0; font: 600 17px var(--display); font-stretch: 95%; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; font: 500 22px var(--mono); color: var(--water); line-height: 1; }
+    details[open] summary::after { content: "–"; }
+    details > div { padding: 0 0 18px; color: var(--ink-2); display: grid; gap: 10px; }
+
+    /* Docs */
+    .docs { display: grid; gap: 12px; }
+    @media (min-width: 720px) { .docs { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1040px) { .docs { grid-template-columns: repeat(5, 1fr); } }
+    .doc { display: grid; gap: 6px; align-content: start; padding: 20px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink); text-decoration: none; transition: border-color .2s, transform .15s; }
+    .doc:hover { border-color: var(--water); transform: translateY(-2px); }
+    .doc .n { font: 700 12px var(--mono); color: var(--water); }
+    .doc b { font-family: var(--display); font-size: 18px; font-stretch: 92%; }
+    .doc span { color: var(--muted); font-size: 14px; }
+
+    .final { text-align: center; padding: 100px 0; }
+    .final h2 { font-size: clamp(36px, 6vw, 64px); margin-bottom: 18px; }
+    .final .lede { margin: 0 auto 30px; }
+    .final .cta { justify-content: center; }
+    footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: 14px; }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .btn, .doc { transition: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="top" aria-label="Main">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Water Flow Meter Zigbee, home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#102a3c"/><circle cx="16" cy="16" r="9" fill="none" stroke="#f3efe6" stroke-width="2"/><path d="M16 16 L21 11" stroke="#e0452f" stroke-width="2.4" stroke-linecap="round"/><circle cx="16" cy="16" r="2" fill="#f3efe6"/></svg>
+      Water Flow Meter
+    </a>
+    <ul>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#home-assistant">Home Assistant</a></li>
+      <li><a href="#calibrate">Calibrate</a></li>
+      <li><a href="#flash">Flash</a></li>
+      <li><a href="#build">Build</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+    <a class="btn btn-ghost btn-sm" href="https://github.com/mmornati/water-flow-meter-zigbee">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.29-1.69-1.29-1.69-1.04-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+      <span class="gh-label">GitHub</span>
+    </a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">DIY Zigbee water meter</span>
+      <h1>Every litre,<br><span class="r">accounted</span> for.</h1>
+      <p class="lede">A Seeed XIAO ESP32-C6 counts the pulses of a G3/4 Hall flow sensor and sends live flow and the running total to Home Assistant over Zigbee. It keeps counting on its 18650 backup when the power goes out.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="#flash">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          Flash in your browser
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/01-hardware-and-wiring.md">Read the build guide</a>
+      </div>
+      <ul class="specs" aria-label="Key specs">
+        <li>1–30 L/min</li>
+        <li>Zigbee router</li>
+        <li>Zigbee2MQTT 2.x</li>
+        <li>No WiFi, no cloud</li>
+      </ul>
+    </div>
+
+    <div class="demo" aria-label="Interactive demo of the meter">
+      <div class="demo-head">
+        <span>Live demo</span>
+        <span class="net"><i></i>Joined · router</span>
+      </div>
+      <div class="meter">
+        <div class="dial">
+          <div class="dial-face">
+            <svg class="ticks" viewBox="0 0 200 200" aria-hidden="true">
+              <g id="ticks" stroke="#102a3c" stroke-linecap="round"></g>
+            </svg>
+            <span class="dial-unit">m³</span>
+            <div class="odo" id="odo" role="img" aria-label="Total water">
+            </div>
+            <svg class="rotor" viewBox="-50 -50 100 100" aria-hidden="true">
+              <circle r="47" fill="#e7e0cf" stroke="#c7bda8" stroke-width="2"/>
+              <g id="rotor">
+                <g fill="#102a3c">
+                  <path d="M0 -6 L6 -40 L-6 -40 Z"/>
+                  <path d="M0 -6 L6 -40 L-6 -40 Z" transform="rotate(60)"/>
+                  <path d="M0 -6 L6 -40 L-6 -40 Z" transform="rotate(120)"/>
+                  <path d="M0 -6 L6 -40 L-6 -40 Z" transform="rotate(180)"/>
+                  <path d="M0 -6 L6 -40 L-6 -40 Z" transform="rotate(240)"/>
+                  <path d="M0 -6 L6 -40 L-6 -40 Z" transform="rotate(300)"/>
+                </g>
+                <circle cx="0" cy="-30" r="5" fill="#e0452f"/>
+              </g>
+              <circle r="7" fill="#102a3c"/>
+            </svg>
+            <span class="dial-brand">XIAO · C6 · ZIGBEE</span>
+          </div>
+        </div>
+        <div class="readout">
+          <div class="stat">
+            <div class="k"><span>Flow</span><span><span class="pulse-led" id="led"></span> pulses</span></div>
+            <div class="v"><span id="flow-v">0.0</span><small>L/min</small></div>
+            <svg class="spark" viewBox="0 0 120 38" preserveAspectRatio="none" aria-hidden="true">
+              <polyline id="spark" fill="none" stroke="var(--water)" stroke-width="1.6" stroke-linejoin="round" points=""/>
+            </svg>
+          </div>
+          <div class="stat">
+            <div class="k"><span>Today</span><span>water_daily</span></div>
+            <div class="v"><span id="today-v">0.0</span><small>L</small></div>
+          </div>
+        </div>
+      </div>
+      <div class="tap">
+        <div class="tap-row">
+          <label for="tap">Open the tap</label>
+          <input type="range" id="tap" min="0" max="30" step="0.1" value="0" aria-describedby="flow-v">
+        </div>
+        <div class="presets" role="group" aria-label="Flow presets">
+          <button type="button" data-flow="0">Off</button>
+          <button type="button" data-flow="0.6">Dripping tap</button>
+          <button type="button" data-flow="9">Shower</button>
+          <button type="button" data-flow="14">Washing machine</button>
+          <button type="button" data-flow="22">Garden hose</button>
+        </div>
+      </div>
+      <div class="payload" aria-live="polite"><span class="sent" id="sent">● report sent</span><span class="c">// zigbee2mqtt/water_meter</span>
+<span id="payload"></span></div>
+    </div>
+  </div>
+</header>
+
+<section id="why" class="alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Why this one</span>
+      <h2>Your WiFi water monitor, minus the WiFi.</h2>
+      <p class="lede">Same sensor, same numbers as an ESPHome build. It joins the Zigbee mesh your other sensors already use, and it doesn't stop counting when something else does.</p>
+    </div>
+    <div class="features">
+      <div class="feature">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.7s6 6.6 6 11.3a6 6 0 0 1-12 0c0-4.7 6-11.3 6-11.3Z"/></svg></div>
+        <h3>Flow and total</h3>
+        <p>Live flow in L/min and a total in litres, ready for the Home Assistant Energy dashboard.</p>
+      </div>
+      <div class="feature">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2M6 11v2M10 11v2"/></svg></div>
+        <h3>Survives power cuts</h3>
+        <p>Runs from USB with an 18650 backup. The total lives in flash and survives reboots too.</p>
+      </div>
+      <div class="feature">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h3l3-8 6 16 3-8h3"/></svg></div>
+        <h3>Hardware counting</h3>
+        <p>The ESP32-C6 PCNT counter with a glitch filter. No pulse is lost while the radio talks.</p>
+      </div>
+      <div class="feature">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4M12 17h.01"/></svg></div>
+        <h3>Leak alerts</h3>
+        <p>Water running non-stop, used overnight, meter offline, running on battery. All in the HA package.</p>
+      </div>
+      <div class="feature">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14l-1.5 14h-11L5 6ZM3 6h18M9 10v6M15 10v6"/></svg></div>
+        <h3>Calibrate with a bucket</h3>
+        <p>Pulses per litre are stored on the device. Two scripts compute the right value for you.</p>
+      </div>
+      <div class="feature">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5"/></svg></div>
+        <h3>A router, too</h3>
+        <p>Always powered, so it relays Zigbee traffic for the devices around your utility room.</p>
+      </div>
+      <div class="feature">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0Z"/></svg></div>
+        <h3>Optional BME280</h3>
+        <p>Temperature, humidity and pressure, detected at boot. No sensor, no empty entities to fight with.</p>
+      </div>
+      <div class="feature">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <h3>Tested on every commit</h3>
+        <p>Unit tests, two firmware builds, converter tests on Z2M's own library, Home Assistant's config checker.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">How it works</span>
+      <h2>From a spinning rotor to your Energy dashboard.</h2>
+    </div>
+    <div class="flow-steps">
+      <div class="step">
+        <h3>The rotor spins</h3>
+        <p>Water turns a small turbine in the G3/4 sensor. A magnet on it passes a Hall sensor once per turn.</p>
+        <span class="tag">yellow wire → D2</span>
+      </div>
+      <div class="step">
+        <h3>Hardware counts</h3>
+        <p>The PCNT peripheral counts every rising edge and drops spikes under 10&nbsp;µs. The CPU just reads it once a second.</p>
+        <span class="tag">PCNT · 1 s</span>
+      </div>
+      <div class="step">
+        <h3>Pulses become litres</h3>
+        <p>Flow is averaged over 5&nbsp;s. The total is kept as a double, exact to the millilitre for decades, and saved when the water stops.</p>
+        <span class="tag">flow_logic.h</span>
+      </div>
+      <div class="step">
+        <h3>Zigbee reports</h3>
+        <p>Start and stop go out at once; while flowing, every 5&nbsp;s if something changed; everything again every 5&nbsp;min.</p>
+        <span class="tag">Analog Input</span>
+      </div>
+      <div class="step">
+        <h3>Home Assistant</h3>
+        <p>Zigbee2MQTT exposes <code>flow</code> and <code>water_consumed</code>, which Home Assistant knows as volume flow rate and water.</p>
+        <span class="tag">Energy · alerts</span>
+      </div>
+    </div>
+    <div class="math" aria-label="Example conversion">
+      <span>490 pulses</span><span>=</span><b>1 L</b>
+      <span aria-hidden="true">·</span>
+      <span>49 pulses/s</span><span>=</span><b>6 L/min</b>
+      <span aria-hidden="true">·</span>
+      <span>a 10-minute shower ≈</span><b>90 L</b>
+    </div>
+  </div>
+</section>
+
+<section id="home-assistant" class="alt">
+  <div class="wrap ha-grid">
+    <div>
+      <div class="sec-head">
+        <span class="eyebrow">Home Assistant</span>
+        <h2>Know where it goes. Hear about it when it shouldn't.</h2>
+        <p class="lede">One Zigbee2MQTT converter, one package file. You get native entities, utility meters for today, this month and this year, and alerts that catch what a monthly bill never will.</p>
+      </div>
+      <div class="alerts">
+        <div class="alert">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          <p><b>Continuous flow.</b> Water running without a break for an hour (you pick the delay): a leak, a hose or a tap left open.</p>
+        </div>
+        <div class="alert">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></span>
+          <p><b>Night usage.</b> More than 2&nbsp;L between 01:00 and 06:00: a dripping tap or a running toilet.</p>
+        </div>
+        <div class="alert">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2M7 11v2"/></svg></span>
+          <p><b>On battery.</b> USB power is gone and the backup cell is draining. Plus <b>meter offline</b> after 15 minutes of silence.</p>
+        </div>
+      </div>
+    </div>
+    <div class="ha-cards">
+      <div class="ha-card wide">
+        <h4>Water consumption · last 7 days</h4>
+        <div class="bars" aria-label="Bar chart of daily water use, example data">
+          <span style="height:62%"></span><span style="height:74%"></span><span style="height:55%"></span><span style="height:88%"></span><span style="height:69%"></span><span style="height:97%"></span><span class="today" id="today-bar" style="height:20%"></span>
+        </div>
+        <div class="bars-x" aria-hidden="true"><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span><span>Mon</span><span>Tue</span><span>Today</span></div>
+      </div>
+      <div class="ha-card">
+        <h4>Water this month</h4>
+        <div class="big">4.82 <small>m³</small></div>
+      </div>
+      <div class="ha-card">
+        <h4>Flow</h4>
+        <div class="big"><span id="ha-flow">0.0</span> <small>L/min</small></div>
+      </div>
+      <div class="ha-card wide">
+        <div class="notif">
+          <span class="app"><svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 2 2 11h3v10h14V11h3L12 2Z"/></svg></span>
+          <div>
+            <b>Water meter</b>
+            <p>Water has been flowing without a break for 60 minutes (0.6 L/min right now). Leak or tap left open?</p>
+            <time>Home Assistant · now</time>
+          </div>
+        </div>
+      </div>
+      <div class="ha-card wide">
+        <h4>Entities</h4>
+        <ul class="entities">
+          <li><code>sensor.water_meter_flow</code><span>volume flow rate</span></li>
+          <li><code>sensor.water_meter_water_consumed</code><span>water · total</span></li>
+          <li><code>number.water_meter_pulses_per_liter</code><span>config</span></li>
+          <li><code>sensor.water_today · _this_month · _this_year</code><span>utility meters</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="calibrate">
+  <div class="wrap calib">
+    <div>
+      <div class="sec-head">
+        <span class="eyebrow">Calibrate</span>
+        <h2>A bucket beats a datasheet.</h2>
+        <p class="lede">Hall sensors are sold with a rough "F = 5.5 × Q". The real number varies from unit to unit. Ten minutes with a bucket and the meter matches your utility bill.</p>
+      </div>
+      <ol class="big-steps">
+        <li><div><h3>Start</h3><p>Run <b>Water calibration - start</b> in Home Assistant. It remembers the current total.</p></div></li>
+        <li><div><h3>Fill a bucket</h3><p>10&nbsp;L, at your usual flow, with nothing else using water in the house.</p></div></li>
+        <li><div><h3>Wait for zero</h3><p>Close the tap and wait until the flow reads 0, so the last litres are reported.</p></div></li>
+        <li><div><h3>Finish</h3><p>Enter the real volume and run <b>Water calibration - finish</b>. The new value is written to the meter.</p></div></li>
+      </ol>
+    </div>
+    <div class="formula">
+      <div class="eq">new&nbsp;=&nbsp;current&nbsp;×<span class="frac"><span>counted</span><span>real</span></span></div>
+      <div class="ex">490 × <span>10.8 L counted</span> / <span>10 L real</span> = <b>529 pulses/L</b></div>
+      <p class="ex">Recalibrating never rewrites the litres already counted.</p>
+    </div>
+  </div>
+</section>
+
+<section id="flash" class="alt">
+  <div class="wrap flash">
+    <div>
+      <div class="sec-head">
+        <span class="eyebrow">Flash</span>
+        <h2>No toolchain. Just a USB cable.</h2>
+        <p class="lede">Install the latest firmware from this page with Chrome or Edge on a computer. Prefer to build it yourself? It's one <code>pio run</code> away.</p>
+      </div>
+      <ul class="checks">
+        <li>Disconnect the TP4056 <code>OUT+</code> wire, then plug the XIAO into your computer.</li>
+        <li>Click <b>Connect &amp; install</b>, pick the serial port, and choose to erase the device on a first install.</li>
+        <li>After a few seconds the LED blinks slowly: open <i>Permit join</i> in Zigbee2MQTT.</li>
+      </ul>
+    </div>
+    <div class="flash-card">
+      <h3>XIAO ESP32-C6 firmware</h3>
+      <p>Zigbee router, pulse counter on D2, optional BME280. Calibration and total stay on the device across updates; only a full erase resets them.</p>
+      <div>
+        <esp-web-install-button manifest="firmware/manifest.json">
+          <button slot="activate" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            Connect &amp; install
+          </button>
+          <span slot="unsupported" class="unsupported">Your browser doesn't support Web Serial. Open this page in Chrome or Edge on a computer.</span>
+          <span slot="not-allowed" class="unsupported">Web Serial needs a secure (https) page.</span>
+        </esp-web-install-button>
+      </div>
+      <div class="version">firmware · __FIRMWARE_VERSION__ · XIAO ESP32-C6 · Zigbee router</div>
+    </div>
+  </div>
+</section>
+
+<section id="build">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Build</span>
+      <h2>About €25 of parts and an afternoon.</h2>
+      <p class="lede">The TP4056 charges the cell and powers everything from it, so the meter doesn't even notice a power cut.</p>
+    </div>
+    <div class="wiring">
+      <div class="diagram">
+        <svg viewBox="0 0 640 400" role="img" aria-label="Wiring: a USB charger feeds the TP4056 module, which charges the 18650 and powers the XIAO and the Hall sensor; the sensor's yellow wire reaches D2 through a diode with a 10 kilo-ohm pull-up; an optional BME280 connects over I2C">
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" fill="var(--muted)"/></marker>
+          </defs>
+          <g fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M80 50 H130 V75 H186" stroke="var(--muted)" marker-end="url(#arr)"/>
+            <path d="M190 112 H160 V190 H140" stroke="var(--red)"/>
+            <path d="M340 70 H430" stroke="var(--red)"/>
+            <path d="M290 115 V250" stroke="var(--red)"/>
+            <path d="M370 290 H400 M432 290 H480 V160" stroke="var(--water)"/>
+            <path d="M580 160 V280" stroke="var(--ok)" stroke-dasharray="6 6"/>
+          </g>
+          <g transform="translate(416 290)">
+            <path d="M14 -11 L14 11 L-10 0 Z" fill="var(--water)"/>
+            <path d="M-12 -12 V12" stroke="var(--water)" stroke-width="3.5"/>
+          </g>
+
+          <rect class="box" x="20" y="20" width="120" height="70" rx="12"/>
+          <text class="lbl" x="80" y="51" text-anchor="middle">USB charger</text>
+          <text class="sub" x="80" y="72" text-anchor="middle">5 V · 1 A</text>
+
+          <rect class="box" x="190" y="30" width="150" height="85" rx="12"/>
+          <text class="lbl" x="265" y="66" text-anchor="middle">TP4056</text>
+          <text class="sub" x="265" y="88" text-anchor="middle">with protection</text>
+
+          <rect class="box" x="20" y="135" width="120" height="110" rx="12"/>
+          <text class="lbl" x="80" y="186" text-anchor="middle">18650</text>
+          <text class="sub" x="80" y="208" text-anchor="middle">B+ / B-</text>
+
+          <rect class="box" x="430" y="30" width="190" height="130" rx="14"/>
+          <text class="lbl" x="525" y="66" text-anchor="middle">XIAO ESP32-C6</text>
+          <text class="sub" x="525" y="90" text-anchor="middle">5V · GND · D2</text>
+          <text class="sub" x="525" y="110" text-anchor="middle">D7 · D8 (I2C)</text>
+          <text class="sub" x="525" y="130" text-anchor="middle">U.FL antenna</text>
+
+          <rect class="box" x="190" y="250" width="180" height="80" rx="14"/>
+          <text class="lbl" x="280" y="284" text-anchor="middle">Hall sensor</text>
+          <text class="sub" x="280" y="306" text-anchor="middle">G3/4 · 1–30 L/min</text>
+
+          <rect class="box" x="520" y="280" width="110" height="70" rx="14" stroke-dasharray="6 5"/>
+          <text class="lbl" x="575" y="311" text-anchor="middle">BME280</text>
+          <text class="sub" x="575" y="331" text-anchor="middle">optional</text>
+
+          <text class="sub" x="385" y="58" text-anchor="middle">3.0–4.2 V</text>
+          <text class="sub" x="300" y="190">red / black</text>
+          <text class="sub" x="416" y="322" text-anchor="middle">BAT85</text>
+          <text class="sub" x="440" y="278">yellow</text>
+          <text class="sub" x="470" y="200" text-anchor="end">to D2</text>
+          <text class="sub" x="470" y="220" text-anchor="end">10 kΩ to 3V3</text>
+          <text class="sub" x="320" y="385" text-anchor="middle">diode bar towards the sensor · dashed = optional</text>
+        </svg>
+      </div>
+      <div class="warn" role="note">
+        <b>Check the pulse voltage first.</b>
+        <p>ESP32-C6 pins take 3.6&nbsp;V at most, and many Hall sensors pull their signal up to their own supply. A Schottky diode (bar towards the sensor) and a 10&nbsp;kΩ pull-up to 3V3 make any sensor safe. <a href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/01-hardware-and-wiring.md#the-pulse-signal-read-this-before-wiring">Why and how</a></p>
+        <p>To flash over USB, disconnect the TP4056 <code>OUT+</code> wire first: the XIAO's <code>5V</code> pin is its USB port.</p>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:28px">
+      <table>
+        <thead><tr><th>Part</th><th>Role</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Seeed XIAO ESP32-C6</td><td>Zigbee radio + MCU</td><td>The firmware switches to the external antenna</td></tr>
+          <tr><td>2.4 GHz U.FL antenna</td><td>Range from a utility room</td><td>Pipes and metal eat 2.4 GHz</td></tr>
+          <tr><td>G3/4 Hall flow sensor</td><td>The sensor</td><td>1–30 L/min, ~490 pulses/L to start with</td></tr>
+          <tr><td>TP4056 USB-C module</td><td>Charging and power</td><td>The 6-pin version with protection (<code>B±</code> and <code>OUT±</code>)</td></tr>
+          <tr><td>18650 cell + holder</td><td>Backup</td><td>One to two days without USB</td></tr>
+          <tr><td>BAT85 diode + 10 kΩ</td><td>Safe pulse signal</td><td>A few cents</td></tr>
+          <tr><td>BME280<span class="opt">optional</span></td><td>Temperature, humidity, pressure</td><td>I2C, address 0x76 or 0x77</td></tr>
+          <tr><td>2 × 100 kΩ + 100 nF<span class="opt">optional</span></td><td>Battery voltage</td><td>Enables the on-battery alert</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="faq" class="alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">FAQ</span>
+      <h2>Good questions.</h2>
+    </div>
+    <div class="faq">
+      <details>
+        <summary>Does it lose water while the network or Home Assistant is down?</summary>
+        <div><p>No. Counting is done by hardware and the total is kept on the device. When the network comes back, Home Assistant gets the new total, and <code>total_increasing</code> statistics catch up on their own.</p></div>
+      </details>
+      <details>
+        <summary>Can it run on the battery alone?</summary>
+        <div><p>Not for long. The Hall sensor draws 5–15&nbsp;mA all the time and a router never sleeps, so an 18650 lasts one to two days. The battery is there to ride through power cuts.</p></div>
+      </details>
+      <details>
+        <summary>Can I match it to my utility meter's reading?</summary>
+        <div><p>Yes. Publish the reading in litres once, for example <code>{"water_consumed": 254318}</code> to <code>zigbee2mqtt/water_meter/set</code>. Use 0 to reset.</p></div>
+      </details>
+      <details>
+        <summary>Will my history move if I recalibrate?</summary>
+        <div><p>No. A new <code>pulses_per_liter</code> applies only to the water counted from then on.</p></div>
+      </details>
+      <details>
+        <summary>Why Zigbee and not ESPHome over WiFi?</summary>
+        <div><p>No credentials, no IP address, no API key: it joins the mesh your other sensors already use and keeps working when the WiFi doesn't. You give up WiFi OTA updates and the web UI; updates go over USB, which is rare once it's calibrated.</p></div>
+      </details>
+      <details>
+        <summary>Will it see a dripping tap?</summary>
+        <div><p>Sometimes. A 1–30 L/min turbine may not spin below about 1&nbsp;L/min. The <b>night usage</b> alert catches slow leaks anyway, because even a few litres over five hours add up on the total.</p></div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section id="docs">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Docs</span>
+      <h2>Everything, step by step.</h2>
+    </div>
+    <div class="docs">
+      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/01-hardware-and-wiring.md"><span class="n">01</span><b>Hardware &amp; wiring</b><span>Power path, the signal pitfall, connection table</span></a>
+      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/02-build-guide.md"><span class="n">02</span><b>Step-by-step build</b><span>Bench test, plumbing, enclosure, final checks</span></a>
+      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/03-firmware.md"><span class="n">03</span><b>Firmware</b><span>Flashing, endpoints, calibration, battery sensing</span></a>
+      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/04-zigbee2mqtt-and-home-assistant.md"><span class="n">04</span><b>Zigbee2MQTT &amp; HA</b><span>Converter, entities, Energy, the package</span></a>
+      <a class="doc" href="https://github.com/mmornati/water-flow-meter-zigbee/blob/main/docs/05-troubleshooting.md"><span class="n">05</span><b>Troubleshooting</b><span>Symptoms, causes and fixes</span></a>
+    </div>
+  </div>
+</section>
+
+<section class="final alt">
+  <div class="wrap">
+    <h2>Find the leak before the bill does.</h2>
+    <p class="lede">Open source, MIT licensed, built from parts you can order today.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="#flash">Flash the firmware</a>
+      <a class="btn btn-ghost" href="https://github.com/mmornati/water-flow-meter-zigbee">Star it on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>MIT © Marco Mornati · Not affiliated with Seeed Studio, Espressif, Zigbee2MQTT or Home Assistant.</span>
+    <span><a href="https://github.com/mmornati/water-flow-meter-zigbee/releases">Releases</a> · <a href="https://github.com/mmornati/reed-contact-zigbee">Also: Reed Contact Zigbee</a></span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const PPL = 490;               // pulses per litre, firmware default
+  const REPORT_MS = 5000;        // firmware REPORT_MIN_INTERVAL_MS
+  const HEARTBEAT_MS = 300000;
+  const START_LITRES = 254318.0; // the dial starts at a believable reading
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const $ = (id) => document.getElementById(id);
+  const tap = $('tap');
+  const presets = [...document.querySelectorAll('.presets button')];
+
+  // Dial ticks
+  const ticks = $('ticks');
+  for (let i = 0; i < 60; i++) {
+    const a = (i / 60) * Math.PI * 2;
+    const long = i % 5 === 0;
+    const r1 = long ? 86 : 90, r2 = 95;
+    const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l.setAttribute('x1', 100 + r1 * Math.sin(a)); l.setAttribute('y1', 100 - r1 * Math.cos(a));
+    l.setAttribute('x2', 100 + r2 * Math.sin(a)); l.setAttribute('y2', 100 - r2 * Math.cos(a));
+    l.setAttribute('stroke-width', long ? 2 : 1);
+    l.setAttribute('opacity', long ? .8 : .45);
+    ticks.appendChild(l);
+  }
+
+  // Odometer: 5 black wheels (m³) + 3 red wheels (litres), like a real water meter.
+  const odo = $('odo');
+  const wheels = [];
+  const places = [7, 6, 5, 4, 3, 2, 1, 0]; // powers of ten, in litres
+  places.forEach((p, i) => {
+    if (i === 5) { const d = document.createElement('span'); d.className = 'dot'; odo.appendChild(d); }
+    const w = document.createElement('div');
+    w.className = 'wheel' + (p < 3 ? ' red' : '');
+    const s = document.createElement('div');
+    s.className = 'strip';
+    s.innerHTML = '0123456789'.split('').concat('0').map((n) => `<span>${n}</span>`).join('');
+    w.appendChild(s);
+    odo.appendChild(w);
+    wheels.push({ p, strip: s });
+  });
+
+  function renderOdo(litres) {
+    for (const { p, strip } of wheels) {
+      const unit = 10 ** p;
+      const base = litres / unit;
+      let pos;
+      if (p === 0) {
+        pos = base % 10;
+      } else {
+        // Carry: roll only while the wheel below goes from 9 to 0.
+        const below = (litres % unit) / unit;
+        pos = Math.floor(base) % 10 + Math.max(0, below * 10 - 9);
+      }
+      strip.style.transform = `translateY(${(-pos / 11) * 100}%)`;
+    }
+    odo.setAttribute('aria-label', `Total water ${(litres / 1000).toFixed(3)} cubic metres`);
+  }
+
+  // State
+  let flow = 0;           // tap setting, L/min
+  let litres = START_LITRES;
+  let today = 186.4;
+  let pulses = 0;
+  let angle = 0;
+  let lastReport = -Infinity;
+  let reportedFlow = 0;
+  let reportedTotal = START_LITRES;
+  const window5 = [];      // [pulses, ms] per second, like FlowMeter::WINDOW
+  let secAcc = 0, secPulses = 0, lastPulseInt = 0;
+  let measuredFlow = 0;
+  const history = new Array(60).fill(0);
+
+  function setFlow(v, fromSlider) {
+    flow = Math.max(0, Math.min(30, Number(v)));
+    if (!fromSlider) tap.value = flow;
+    presets.forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.flow) === flow)));
+  }
+  tap.addEventListener('input', () => setFlow(tap.value, true));
+  presets.forEach((b) => b.addEventListener('click', () => setFlow(b.dataset.flow)));
+
+  const fmt = (n, d) => n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+  function renderPayload() {
+    $('payload').innerHTML =
+      `{\n  <span class="k">"flow"</span>: <span class="n">${reportedFlow.toFixed(2)}</span>,\n` +
+      `  <span class="k">"water_consumed"</span>: <span class="n">${reportedTotal.toFixed(3)}</span>,\n` +
+      `  <span class="k">"linkquality"</span>: <span class="n">184</span>\n}`;
+  }
+
+  function report(now) {
+    reportedFlow = measuredFlow;
+    reportedTotal = litres;
+    lastReport = now;
+    renderPayload();
+    const s = $('sent');
+    s.classList.add('show');
+    setTimeout(() => s.classList.remove('show'), 900);
+  }
+
+  function renderSpark() {
+    const max = Math.max(10, ...history);
+    $('spark').setAttribute('points', history.map((v, i) => `${(i / 59) * 120},${36 - (v / max) * 32}`).join(' '));
+  }
+
+  let last = performance.now();
+  function tick(now) {
+    const dt = Math.min(0.25, (now - last) / 1000);
+    last = now;
+
+    const lps = flow / 60;
+    litres += lps * dt;
+    today += lps * dt;
+    pulses += lps * PPL * dt;
+
+    // Firmware-like sampling: one sample per second, flow averaged over the last 5.
+    secAcc += dt * 1000;
+    const whole = Math.floor(pulses);
+    secPulses += whole - lastPulseInt;
+    lastPulseInt = whole;
+    if (secAcc >= 1000) {
+      window5.push([secPulses, secAcc]);
+      if (window5.length > 5) window5.shift();
+      const sp = window5.reduce((a, w) => a + w[0], 0);
+      const sm = window5.reduce((a, w) => a + w[1], 0);
+      measuredFlow = sp === 0 ? 0 : (sp / PPL) * (60000 / sm);
+      history.push(measuredFlow); history.shift();
+      renderSpark();
+      secAcc = 0; secPulses = 0;
+
+      const startedOrStopped = (measuredFlow > 0) !== (reportedFlow > 0);
+      const changed = startedOrStopped || Math.abs(measuredFlow - reportedFlow) >= 0.1 || Math.abs(litres - reportedTotal) >= 0.5;
+      if ((changed && now - lastReport >= REPORT_MS) || now - lastReport >= HEARTBEAT_MS) report(now);
+    }
+
+    // Rotor: one turn per pulse would be a blur; show one turn per ~25 pulses.
+    if (!reduce) angle = (angle + (lps * PPL / 25) * 360 * dt) % 360;
+    $('rotor').setAttribute('transform', `rotate(${angle})`);
+    $('led').classList.toggle('on', flow > 0 && (Math.floor(pulses / 8) % 2 === 0));
+
+    renderOdo(litres);
+    $('flow-v').textContent = fmt(measuredFlow, 1);
+    $('ha-flow').textContent = fmt(reportedFlow, 1);
+    $('today-v').textContent = fmt(today, 1);
+    $('today-bar').style.height = `${Math.min(100, 20 + (today / 420) * 80)}%`;
+
+    requestAnimationFrame(tick);
+  }
+
+  renderOdo(litres);
+  renderPayload();
+  setFlow(reduce ? 0 : 9);
+  requestAnimationFrame((t) => { last = t; report(t); tick(t); });
+})();
+</script>
+</body>
+</html>

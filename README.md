@@ -6,6 +6,7 @@
 Seeed XIAO ESP32-C6 + a G3/4 Hall flow sensor + an 18650 backup · Zigbee2MQTT & Home Assistant ready.
 
 [![CI](https://github.com/mmornati/water-flow-meter-zigbee/actions/workflows/ci.yml/badge.svg)](https://github.com/mmornati/water-flow-meter-zigbee/actions/workflows/ci.yml)
+[![Pages](https://github.com/mmornati/water-flow-meter-zigbee/actions/workflows/pages.yml/badge.svg)](https://mmornati.github.io/water-flow-meter-zigbee/)
 [![Release](https://img.shields.io/github/v/release/mmornati/water-flow-meter-zigbee?include_prereleases&sort=semver)](https://github.com/mmornati/water-flow-meter-zigbee/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 <br>
@@ -13,7 +14,7 @@ Seeed XIAO ESP32-C6 + a G3/4 Hall flow sensor + an 18650 backup · Zigbee2MQTT &
 [![Zigbee2MQTT](https://img.shields.io/badge/Zigbee2MQTT-2.x-FFC135?logo=zigbee&logoColor=black)](https://www.zigbee2mqtt.io/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-ready-18BCF2?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 
-[**📖 Build guide**](docs/01-hardware-and-wiring.md) · [**📦 Releases**](https://github.com/mmornati/water-flow-meter-zigbee/releases)
+[**🌐 Website**](https://mmornati.github.io/water-flow-meter-zigbee/) · [**⚡ Flash in your browser**](https://mmornati.github.io/water-flow-meter-zigbee/#flash) · [**📖 Build guide**](docs/01-hardware-and-wiring.md) · [**📦 Releases**](https://github.com/mmornati/water-flow-meter-zigbee/releases)
 
 </div>
 
@@ -32,12 +33,13 @@ The Zigbee version of a WiFi/ESPHome water monitor: same sensor, same numbers, n
 | 🚨 **Leak alerts** | Continuous flow, night usage, offline and on-battery alerts in the HA package |
 | 📡 **A Zigbee router, too** | Always powered, so it relays traffic for the Zigbee devices around your utility room |
 | 🌡️ **Optional BME280** | Temperature, humidity and pressure, detected at boot |
+| ⚡ **Flash from the browser** | No toolchain needed: plug in USB and install from the [website](https://mmornati.github.io/water-flow-meter-zigbee/#flash) |
 | ✅ **Tested on every commit** | Unit tests, two firmware builds, converter tests against Z2M's own library, Home Assistant's config checker |
 
 ## 🚀 Quick start
 
 1. **Wire it.** TP4056 `OUT` → XIAO `5V`/`GND` and sensor red/black, sensor yellow → diode → `D2`. [Wiring guide →](docs/01-hardware-and-wiring.md)
-2. **Flash it.**
+2. **Flash it.** From the [website](https://mmornati.github.io/water-flow-meter-zigbee/#flash) (Chrome or Edge), or build it yourself:
 
    ```bash
    cd firmware

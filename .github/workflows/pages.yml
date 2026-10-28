@@ -1,0 +1,74 @@
+name: Pages
+
+# Builds the firmware for the browser flasher and publishes site/ to GitHub Pages.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "firmware/**"
+      - ".github/workflows/pages.yml"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+      - name: Install PlatformIO
+        run: pip install platformio
+      - name: Build firmware
+        run: pio run -d firmware -e xiao_esp32c6
+      - name: Add firmware and ESP Web Tools manifest to the site
+        run: |
+          version="$(git describe --tags --always)"
+          mkdir -p site/firmware
+          cp firmware/.pio/build/xiao_esp32c6/firmware.factory.bin site/firmware/water-flow-meter-zigbee.factory.bin
+          cat > site/firmware/manifest.json <<EOF
+          {
+            "name": "Water Flow Meter Zigbee",
+            "version": "${version}",
+            "new_install_prompt_erase": true,
+            "builds": [
+              {
+                "chipFamily": "ESP32-C6",
+                "parts": [{ "path": "water-flow-meter-zigbee.factory.bin", "offset": 0 }]
+              }
+            ]
+          }
+          EOF
+          sed -i "s/__FIRMWARE_VERSION__/${version}/g" site/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
