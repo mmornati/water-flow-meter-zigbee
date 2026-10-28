@@ -35,7 +35,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.platformio
           key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
@@ -65,7 +65,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: arduino/setup-arduino-cli@v2
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.arduino15
           key: arduino-esp32-3.3.12-${{ runner.os }}
