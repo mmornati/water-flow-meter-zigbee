@@ -1,0 +1,78 @@
+From c98fafe6171a1895fa38d8a0cdab7e645a68bd6b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 29 Oct 2026 11:05:25 +0000
+Subject: [PATCH] [zigbee] OTA: work with signed OTA verification
+
+Signed OTA verification and downgrade protection come from the ESP32
+OTA backend, which the zigbee platform already uses. With a signing key
+in the config, IDF signs the app image before gen_project_binary ends,
+so firmware.zigbee.ota wraps the signed image (checked: the image in the
+file verifies with espsecure). With external signing the build warns
+that the OTA file holds the unsigned image and shows how to wrap the
+signed one.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01TAigdDwPTsH7gxNNraUrHU
+---
+ esphome/components/zigbee/ota/__init__.py | 24 ++++++++++++++++++++++-
+ 1 file changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/esphome/components/zigbee/ota/__init__.py b/esphome/components/zigbee/ota/__init__.py
+index 4c3c20b..0015b9c 100644
+--- a/esphome/components/zigbee/ota/__init__.py
++++ b/esphome/components/zigbee/ota/__init__.py
+@@ -6,6 +6,7 @@ The received image goes through the regular ESP-IDF OTA backend, so rollback
+ and safe mode work as for the other OTA platforms.
+ """
+ 
++import logging
+ from pathlib import Path
+ import time
+ 
+@@ -13,7 +14,7 @@ import esphome.codegen as cg
+ from esphome.components.esp32 import add_extra_build_file, add_src_cmake
+ from esphome.components.ota import BASE_OTA_SCHEMA, OTAComponent, ota_to_code
+ import esphome.config_validation as cv
+-from esphome.const import CONF_ENDPOINT, CONF_ID
++from esphome.const import CONF_ADVANCED, CONF_ENDPOINT, CONF_FRAMEWORK, CONF_ID
+ from esphome.core import CORE
+ from esphome.coroutine import CoroPriority, coroutine_with_priority
+ from esphome.types import ConfigType
+@@ -22,6 +23,8 @@ from ..const import ZigbeeComponent
+ from ..const_zephyr import CONF_ZIGBEE_ID
+ from ..zigbee_ep_esp32 import get_first_ep_num
+ 
++_LOGGER = logging.getLogger(__name__)
++
+ CODEOWNERS = ["@mmornati"]
+ DEPENDENCIES = ["zigbee"]
+ 
+@@ -96,6 +99,25 @@ async def to_code(config: ConfigType) -> None:
+     ]
+     if not config[CONF_COMPRESS]:
+         args.append("--no-compress")
++    # With signed OTA verification the device only accepts a signed image.
++    # A key in the config signs <name>.bin before gen_project_binary ends, so
++    # the OTA file wraps the signed image. Signed outside the build, the image
++    # has to be wrapped again after signing.
++    advanced = (
++        CORE.config.get("esp32", {}).get(CONF_FRAMEWORK, {}).get(CONF_ADVANCED, {})
++    )
++    signed = advanced.get("signed_ota_verification")
++    if signed and "signing_key" not in signed:
++        _LOGGER.warning(
++            "Signed OTA verification without 'signing_key': %s holds the unsigned "
++            "image, which the device rejects. Sign <build>/%s.bin, then wrap it with "
++            "'python %s <signed .bin> %s %s'",
++            OTA_FILE_NAME,
++            CORE.name,
++            PACKER_SCRIPT,
++            OTA_FILE_NAME,
++            " ".join(args),
++        )
+     add_src_cmake(
+         f"""
+ idf_build_get_property(_zb_ota_python PYTHON)
+-- 
+2.43.0
+
