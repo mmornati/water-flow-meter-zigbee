@@ -1,0 +1,287 @@
+From 9d15a1282c54238a8f55532304c2a7fd44522454 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 29 Oct 2026 19:33:14 +0000
+Subject: [PATCH] [zigbee] OTA: confirm a new image only once the OTA server
+ answers
+
+After a Zigbee OTA the new image keeps the bootloader rollback armed
+until the coordinator answers a Query Next Image (sent every 30 s) or
+offers an image. Without an answer within confirm_timeout (default
+10 min) the device rolls back: an image that boots but cannot reach the
+Zigbee network could not be updated again. safe_mode gets
+hold_app_confirmation()/release_app_confirmation() so its
+boot_is_good_after does not confirm the image first.
+
+Idea from github.com/jabla/esphome-hiflow-zigbee.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01TAigdDwPTsH7gxNNraUrHU
+---
+ esphome/components/safe_mode/safe_mode.cpp    | 14 ++++-
+ esphome/components/safe_mode/safe_mode.h      | 11 ++++
+ esphome/components/zigbee/ota/__init__.py     | 14 +++++
+ .../zigbee/ota/zigbee_ota_esp32.cpp           | 61 +++++++++++++++++++
+ .../components/zigbee/ota/zigbee_ota_esp32.h  | 26 ++++++++
+ 5 files changed, 124 insertions(+), 2 deletions(-)
+
+diff --git a/esphome/components/safe_mode/safe_mode.cpp b/esphome/components/safe_mode/safe_mode.cpp
+index 7d77b09..3368ea4 100644
+--- a/esphome/components/safe_mode/safe_mode.cpp
++++ b/esphome/components/safe_mode/safe_mode.cpp
+@@ -115,8 +115,10 @@ float SafeModeComponent::get_setup_priority() const { return setup_priority::AFT
+ 
+ #ifdef USE_OTA_ROLLBACK
+ void SafeModeComponent::confirm_app_image_() {
+-  // Mark the running app image as valid so the bootloader will not roll back
+-  // to the previously flashed image
++  if (this->app_confirmation_held_)
++    return;
++    // Mark the running app image as valid so the bootloader will not roll back
++    // to the previously flashed image
+ #if defined(USE_ZEPHYR)
+   if (!boot_is_img_confirmed()) {
+     boot_write_img_confirmed();
+@@ -133,6 +135,14 @@ void SafeModeComponent::confirm_app_image_() {
+ }
+ #endif
+ 
++#ifdef USE_OTA_ROLLBACK
++void SafeModeComponent::release_app_confirmation() {
++  this->app_confirmation_held_ = false;
++  if (this->boot_successful_)
++    this->confirm_app_image_();
++}
++#endif
++
+ void SafeModeComponent::mark_successful() {
+   this->clean_rtc();
+   this->boot_successful_ = true;
+diff --git a/esphome/components/safe_mode/safe_mode.h b/esphome/components/safe_mode/safe_mode.h
+index f6204ef..1f41b1d 100644
+--- a/esphome/components/safe_mode/safe_mode.h
++++ b/esphome/components/safe_mode/safe_mode.h
+@@ -38,6 +38,14 @@ class SafeModeComponent final : public Component {
+ 
+   void mark_successful();
+ 
++#ifdef USE_OTA_ROLLBACK
++  /// Keep the running app image unconfirmed (rollback armed) until release_app_confirmation(),
++  /// for a component that needs more proof than boot_is_good_after (e.g. reaching its OTA server).
++  void hold_app_confirmation() { this->app_confirmation_held_ = true; }
++  /// Confirm the running app image now if the boot was already considered successful, else when it is.
++  void release_app_confirmation();
++#endif
++
+ #ifdef USE_SAFE_MODE_CALLBACK
+   template<typename F> void add_on_safe_mode_callback(F &&callback) {
+     this->safe_mode_callback_.add(std::forward<F>(callback));
+@@ -61,6 +69,9 @@ class SafeModeComponent final : public Component {
+ #endif
+   // Group 1-byte members together to minimize padding
+   bool boot_successful_{false};  ///< set to true after boot is considered successful
++#ifdef USE_OTA_ROLLBACK
++  bool app_confirmation_held_{false};
++#endif
+   uint8_t safe_mode_num_attempts_{0};
+ #if defined(USE_ESP32) && defined(USE_OTA_ROLLBACK)
+   bool app_ota_possible_{true};
+diff --git a/esphome/components/zigbee/ota/__init__.py b/esphome/components/zigbee/ota/__init__.py
+index 0015b9c..0da80aa 100644
+--- a/esphome/components/zigbee/ota/__init__.py
++++ b/esphome/components/zigbee/ota/__init__.py
+@@ -33,6 +33,7 @@ CONF_IMAGE_TYPE = "image_type"
+ CONF_FILE_VERSION = "file_version"
+ CONF_BLOCK_SIZE = "block_size"
+ CONF_COMPRESS = "compress"
++CONF_CONFIRM_TIMEOUT = "confirm_timeout"
+ 
+ OTA_FILE_NAME = "firmware.zigbee.ota"
+ PACKER_SCRIPT = "make_zigbee_ota.py"
+@@ -58,6 +59,12 @@ CONFIG_SCHEMA = cv.All(
+             cv.Optional(CONF_BLOCK_SIZE, default=223): cv.int_range(min=16, max=254),
+             # zlib-compress the image in the OTA file (about 60 % of the size).
+             cv.Optional(CONF_COMPRESS, default=True): cv.boolean,
++            # A new image is confirmed only once the OTA server answers (Query
++            # Next Image); without an answer in this time the bootloader rolls
++            # back to the previous image. 0s leaves it to safe_mode alone.
++            cv.Optional(
++                CONF_CONFIRM_TIMEOUT, default="10min"
++            ): cv.positive_time_period_milliseconds,
+         }
+     )
+     .extend(BASE_OTA_SCHEMA)
+@@ -80,6 +87,13 @@ async def to_code(config: ConfigType) -> None:
+     cg.add(var.set_endpoint(endpoint))
+     cg.add(var.set_block_size(config[CONF_BLOCK_SIZE]))
+     cg.add(var.set_file_version(file_version))
++    cg.add(var.set_manufacturer_code(config[CONF_MANUFACTURER_CODE]))
++    cg.add(var.set_image_type(config[CONF_IMAGE_TYPE]))
++    safe_mode_conf = CORE.config.get("safe_mode") or {}
++    if config[CONF_CONFIRM_TIMEOUT] and CONF_ID in safe_mode_conf:
++        cg.add_define("USE_ZIGBEE_OTA_CONFIRM")
++        cg.add(var.set_safe_mode(await cg.get_variable(safe_mode_conf[CONF_ID])))
++        cg.add(var.set_confirm_timeout(config[CONF_CONFIRM_TIMEOUT]))
+     CORE.add_job(
+         _add_cluster,
+         zb,
+diff --git a/esphome/components/zigbee/ota/zigbee_ota_esp32.cpp b/esphome/components/zigbee/ota/zigbee_ota_esp32.cpp
+index c4985cc..add3a95 100644
+--- a/esphome/components/zigbee/ota/zigbee_ota_esp32.cpp
++++ b/esphome/components/zigbee/ota/zigbee_ota_esp32.cpp
+@@ -39,9 +39,23 @@ static constexpr uint32_t REBOOT_DELAY_MIN_MS = 2000;
+ static constexpr uint32_t REBOOT_DELAY_MAX_S = 86400;
+ // Out-of-place blocks in a row tolerated before giving up.
+ static constexpr uint8_t MAX_RESYNCS = 50;
++// While a new image waits for confirmation, ask the server this often.
++static constexpr uint32_t CONFIRM_QUERY_MS = 30000;
+ 
+ void ZigbeeOTAComponent::setup() {
+   this->parent_->set_ota_listener(this);
++#ifdef USE_ZIGBEE_OTA_CONFIRM
++  esp_ota_img_states_t state;
++  if (this->safe_mode_ != nullptr && this->confirm_timeout_ms_ > 0 &&
++      esp_ota_get_state_partition(esp_ota_get_running_partition(), &state) == ESP_OK &&
++      state == ESP_OTA_IMG_PENDING_VERIFY) {
++    this->safe_mode_->hold_app_confirmation();
++    this->pending_confirm_ = true;
++    this->boot_ms_ = millis();
++    ESP_LOGI(TAG, "New image, confirmed once the OTA server answers (rollback after %" PRIu32 " s)",
++             this->confirm_timeout_ms_ / 1000);
++  }
++#endif
+   this->parent_->add_on_start_callback([this]() {
+     esp_zigbee_lock_acquire(portMAX_DELAY);
+     ezb_zcl_ota_upgrade_set_download_block_size(this->endpoint_, this->block_size_);
+@@ -61,6 +75,10 @@ void ZigbeeOTAComponent::dump_config() {
+ 
+ void ZigbeeOTAComponent::loop() {
+   const uint32_t now = millis();
++#ifdef USE_ZIGBEE_OTA_CONFIRM
++  if (this->pending_confirm_)
++    this->confirm_loop_(now);
++#endif
+ 
+   if (this->reboot_pending_.load()) {
+     if (this->reboot_at_ms_ == 0) {
+@@ -90,6 +108,41 @@ void ZigbeeOTAComponent::loop() {
+   }
+ }
+ 
++#ifdef USE_ZIGBEE_OTA_CONFIRM
++void ZigbeeOTAComponent::confirm_loop_(uint32_t now) {
++  if (this->server_answered_.load()) {
++    this->pending_confirm_ = false;
++    ESP_LOGI(TAG, "OTA server answered, new image confirmed");
++    this->safe_mode_->release_app_confirmation();
++  } else if (now - this->boot_ms_ > this->confirm_timeout_ms_) {
++    ESP_LOGE(TAG, "No answer from the OTA server within %" PRIu32 " s, rolling back", this->confirm_timeout_ms_ / 1000);
++    App.run_safe_shutdown_hooks();
++    esp_ota_mark_app_invalid_rollback_and_reboot();
++  } else if (this->parent_->is_joined() &&
++             (this->last_query_ms_ == 0 || now - this->last_query_ms_ > CONFIRM_QUERY_MS)) {
++    this->last_query_ms_ = now;
++    this->send_query_();
++  }
++}
++
++void ZigbeeOTAComponent::send_query_() {
++  ezb_zcl_ota_upgrade_query_next_image_req_cmd_t req = {};
++  req.cmd_ctrl.dst_addr.addr_mode = EZB_ADDR_MODE_SHORT;
++  req.cmd_ctrl.dst_addr.u.short_addr = 0x0000;  // the coordinator
++  req.cmd_ctrl.dst_ep = 1;
++  req.cmd_ctrl.src_ep = this->endpoint_;
++  req.payload.fc = 0;
++  req.payload.manuf_code = this->manufacturer_code_;
++  req.payload.image_type = this->image_type_;
++  req.payload.file_version = this->file_version_;
++  if (!esp_zigbee_lock_acquire(10 / portTICK_PERIOD_MS))
++    return;
++  ezb_err_t err = ezb_zcl_ota_upgrade_query_next_image_cmd_req(&req);
++  esp_zigbee_lock_release();
++  ESP_LOGD(TAG, "Query Next Image sent (%d)", err);
++}
++#endif
++
+ void ZigbeeOTAComponent::notify_(ota::OTAState state, float progress, uint8_t error) {
+ #ifdef USE_OTA_STATE_LISTENER
+   this->notify_state_deferred_(state, progress, error);
+@@ -99,6 +152,10 @@ void ZigbeeOTAComponent::notify_(ota::OTAState state, float progress, uint8_t er
+ void ZigbeeOTAComponent::on_ota_action(ezb_zcl_core_action_callback_id_t callback_id, void *message) {
+   if (callback_id == EZB_ZCL_CORE_OTA_UPGRADE_QUERY_NEXT_IMAGE_RSP_CB_ID) {
+     auto *msg = static_cast<ezb_zcl_ota_upgrade_query_next_image_rsp_message_t *>(message);
++#ifdef USE_ZIGBEE_OTA_CONFIRM
++    // Any answer, "no image" included, proves the round trip to the server.
++    this->server_answered_ = true;
++#endif
+     if (msg->in.image.status == EZB_ZCL_OTA_UPGRADE_STATUS_CODE_SUCCESS) {
+       ESP_LOGI(TAG, "Image offered: type 0x%04X, version 0x%08" PRIX32 ", %" PRIu32 " bytes", msg->in.image.image_type,
+                msg->in.image.file_version, msg->in.image.size);
+@@ -157,6 +214,10 @@ void ZigbeeOTAComponent::on_ota_action(ezb_zcl_core_action_callback_id_t callbac
+ }
+ 
+ ezb_zcl_status_t ZigbeeOTAComponent::on_start_(uint32_t file_size, uint32_t file_version) {
++#ifdef USE_ZIGBEE_OTA_CONFIRM
++  // An offer is an answer from the server too (and begin() below confirms the running image).
++  this->server_answered_ = true;
++#endif
+   if (this->ended_.load() || this->reboot_pending_.load()) {
+     // The other slot holds the image selected for the next boot.
+     ESP_LOGW(TAG, "Offer refused, a new image waits for the reboot");
+diff --git a/esphome/components/zigbee/ota/zigbee_ota_esp32.h b/esphome/components/zigbee/ota/zigbee_ota_esp32.h
+index d0cbc3e..b3e97e4 100644
+--- a/esphome/components/zigbee/ota/zigbee_ota_esp32.h
++++ b/esphome/components/zigbee/ota/zigbee_ota_esp32.h
+@@ -11,6 +11,9 @@
+ #include "esphome/components/zigbee/zigbee_esp32.h"
+ #include "esphome/core/component.h"
+ #include "esphome/core/helpers.h"
++#ifdef USE_ZIGBEE_OTA_CONFIRM
++#include "esphome/components/safe_mode/safe_mode.h"
++#endif
+ 
+ namespace esphome::zigbee {
+ 
+@@ -29,6 +32,12 @@ class ZigbeeOTAComponent : public ota::OTAComponent, public ZigbeeOTAListener, p
+   void set_endpoint(uint8_t endpoint) { this->endpoint_ = endpoint; }
+   void set_block_size(uint8_t block_size) { this->block_size_ = block_size; }
+   void set_file_version(uint32_t file_version) { this->file_version_ = file_version; }
++  void set_manufacturer_code(uint16_t manufacturer_code) { this->manufacturer_code_ = manufacturer_code; }
++  void set_image_type(uint16_t image_type) { this->image_type_ = image_type; }
++#ifdef USE_ZIGBEE_OTA_CONFIRM
++  void set_safe_mode(safe_mode::SafeModeComponent *safe_mode) { this->safe_mode_ = safe_mode; }
++  void set_confirm_timeout(uint32_t confirm_timeout_ms) { this->confirm_timeout_ms_ = confirm_timeout_ms; }
++#endif
+ 
+   void on_ota_action(ezb_zcl_core_action_callback_id_t callback_id, void *message) override;
+ 
+@@ -49,10 +58,27 @@ class ZigbeeOTAComponent : public ota::OTAComponent, public ZigbeeOTAListener, p
+   void reset_upgrade_status_();
+   void resync_file_offset_(uint32_t block_len);
+   void notify_(ota::OTAState state, float progress, uint8_t error);
++#ifdef USE_ZIGBEE_OTA_CONFIRM
++  void confirm_loop_(uint32_t now);
++  void send_query_();
++#endif
+ 
+   uint8_t endpoint_{1};
+   uint8_t block_size_{223};
+   uint32_t file_version_{0};
++  uint16_t manufacturer_code_{0};
++  uint16_t image_type_{0};
++#ifdef USE_ZIGBEE_OTA_CONFIRM
++  // A new image stays unconfirmed (bootloader rollback armed) until the OTA
++  // server answers: an image that boots but cannot reach the Zigbee network
++  // could not be updated again, so it rolls back after confirm_timeout_ms_.
++  safe_mode::SafeModeComponent *safe_mode_{nullptr};
++  uint32_t confirm_timeout_ms_{0};
++  uint32_t boot_ms_{0};
++  uint32_t last_query_ms_{0};
++  bool pending_confirm_{false};
++  std::atomic<bool> server_answered_{false};
++#endif
+ 
+   // Zigbee task only.
+   ota::OTABackendPtr backend_{nullptr};
+-- 
+2.43.0
+
