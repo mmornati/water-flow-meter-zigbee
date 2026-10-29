@@ -8,7 +8,8 @@ device over the Zigbee network. It is built on ESPHome dev at `5071968`
 
 | File | What it is |
 |---|---|
-| `0001-zigbee-Add-OTA-updates-over-Zigbee-...patch` | The ESPHome change, one commit (8 files, ~820 lines) |
+| `0001-zigbee-Add-OTA-updates-over-Zigbee-...patch` | The ESPHome change (8 files, ~820 lines) |
+| `0002-zigbee-OTA-recover-from-duplicate-...patch` | Fix found in the hardware test: recover from duplicate/out-of-order blocks |
 | `zigbee-ota-test.yaml` | Test config for a spare XIAO ESP32-C6 (router, uptime + chip temperature) |
 | `esphome_ota_test.mjs` | Zigbee2MQTT external converter for the test device, with `ota: true` |
 
@@ -43,8 +44,14 @@ Options: `image_type` (required, give each kind of device its own),
   parses, and unpacking it gives back exactly `firmware.ota.bin`.
 - `script/test_build_components.py -e config -c zigbee`: 4/4 pass, including
   the new `test-ota.esp32-c6-idf.yaml`.
-- **Not tested yet:** it has not run on a real board with Z2M. That is your
-  test below.
+- **Hardware test, 2026-10-29, PASS** (XIAO ESP32-C6 router, Z2M 2.14.2, EmberZNet 7.5.1, channel 25):
+  - The C6 updated itself over Zigbee from v1 0x6AE314BD to v2 0x6AE31525: 361 KB
+    in 32 min (about 186 B/s, Z2M's default of 50-byte blocks with 250 ms between them).
+  - Two late duplicate blocks happened during the download and were recovered (patch 0002).
+  - It rebooted into v2, logged "Bootloader rollback: supported" and
+    "Boot seems successful", and Z2M showed installed = latest.
+  - The first two tries, without patch 0002, aborted at 17 % and 22 % on the same
+    duplicate-block event.
 
 ## Test on the spare XIAO ESP32-C6
 
