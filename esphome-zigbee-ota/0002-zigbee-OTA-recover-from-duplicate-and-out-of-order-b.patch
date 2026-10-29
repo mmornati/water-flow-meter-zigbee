@@ -1,0 +1,160 @@
+From 1d0e6585ac646714bb2b95c336991279a2265f76 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 29 Oct 2026 09:40:43 +0000
+Subject: [PATCH] [zigbee] OTA: recover from duplicate and out-of-order blocks
+
+A late duplicate block moved the stack's FileOffset past the data
+written, so the next block came after a gap and the download aborted
+(seen twice on hardware with Zigbee2MQTT, 50-byte blocks). Out-of-place
+blocks are now skipped and FileOffset is set back whenever it runs
+ahead, overlapping blocks keep their new part, and only 50 skipped
+blocks in a row give up. A failure on the device side now fires
+on_error instead of on_abort.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01TAigdDwPTsH7gxNNraUrHU
+---
+ .../zigbee/ota/zigbee_ota_esp32.cpp           | 63 +++++++++++++------
+ .../components/zigbee/ota/zigbee_ota_esp32.h  |  1 +
+ 2 files changed, 46 insertions(+), 18 deletions(-)
+
+diff --git a/esphome/components/zigbee/ota/zigbee_ota_esp32.cpp b/esphome/components/zigbee/ota/zigbee_ota_esp32.cpp
+index 8d7fcb2..c4985cc 100644
+--- a/esphome/components/zigbee/ota/zigbee_ota_esp32.cpp
++++ b/esphome/components/zigbee/ota/zigbee_ota_esp32.cpp
+@@ -37,6 +37,8 @@ static constexpr uint8_t BLOCK_RETRIES = 3;
+ static constexpr uint32_t STALL_MS = 60000;
+ static constexpr uint32_t REBOOT_DELAY_MIN_MS = 2000;
+ static constexpr uint32_t REBOOT_DELAY_MAX_S = 86400;
++// Out-of-place blocks in a row tolerated before giving up.
++static constexpr uint8_t MAX_RESYNCS = 50;
+ 
+ void ZigbeeOTAComponent::setup() {
+   this->parent_->set_ota_listener(this);
+@@ -169,6 +171,7 @@ ezb_zcl_status_t ZigbeeOTAComponent::on_start_(uint32_t file_size, uint32_t file
+   this->pending_len_ = 0;
+   this->failed_ = false;
+   this->last_percent_ = 0;
++  this->resyncs_ = 0;
+   this->offset_ = 0;
+ 
+   this->backend_ = ota::make_ota_backend();
+@@ -191,19 +194,29 @@ ezb_zcl_status_t ZigbeeOTAComponent::on_receiving_(uint32_t block_offset, const
+     return EZB_ZCL_STATUS_ABORT;
+   const uint32_t block_len = len;
+   const uint32_t expected = this->offset_.load();
+-  if (block_offset != expected && block_offset + len <= expected) {
+-    // A late answer to a block the stack already asked for again.
+-    ESP_LOGW(TAG, "Block at %" PRIu32 " again (expected %" PRIu32 "), skipped", block_offset, expected);
++  if (block_offset > expected || block_offset + len <= expected) {
++    // Not the block we need: a late answer to a block the stack already asked
++    // for again, or a block past a gap that such an answer left behind.
++    if (++this->resyncs_ > MAX_RESYNCS) {
++      ESP_LOGE(TAG, "Block at %" PRIu32 ", expected %" PRIu32 ", giving up after %u skipped blocks in a row",
++               block_offset, expected, MAX_RESYNCS);
++      this->failed_ = true;
++      return EZB_ZCL_STATUS_ABORT;
++    }
++    ESP_LOGW(TAG, "Block at %" PRIu32 " (expected %" PRIu32 "), skipped", block_offset, expected);
+     this->resync_file_offset_(block_len);
+     return EZB_ZCL_STATUS_SUCCESS;
+   }
+-  if (block_offset != expected) {
+-    ESP_LOGE(TAG, "Block at %" PRIu32 ", expected %" PRIu32, block_offset, expected);
+-    this->failed_ = true;
+-    return EZB_ZCL_STATUS_ABORT;
++  if (block_offset < expected) {
++    // Overlaps data already written: keep only the new part.
++    const uint32_t skip = expected - block_offset;
++    data += skip;
++    len -= skip;
++    block_offset = expected;
+   }
+   uint32_t pos = block_offset;
+   this->offset_ = block_offset + len;
++  this->resyncs_ = 0;
+ 
+   while (len > 0) {
+     if (this->header_length_ == 0 || pos < this->header_length_) {
+@@ -318,8 +331,16 @@ void ZigbeeOTAComponent::on_abort_() {
+     this->ended_ = false;
+   }
+   ESP_LOGW(TAG, "Update aborted at %" PRIu32 " bytes", this->offset_.load());
++  // A failure on this side (bad block, flash write) shows as an error, an
++  // abort from the server as an abort.
++  const bool failed = this->failed_;
++  this->failed_ = false;
+   this->end_download_();
+-  this->notify_(ota::OTA_ABORT, 0.0f, 0);
++  if (failed) {
++    this->notify_(ota::OTA_ERROR, 0.0f, static_cast<uint8_t>(ota::OTA_RESPONSE_ERROR_UNKNOWN));
++  } else {
++    this->notify_(ota::OTA_ABORT, 0.0f, 0);
++  }
+ }
+ 
+ bool ZigbeeOTAComponent::begin_element_(uint16_t tag, uint32_t length) {
+@@ -365,7 +386,6 @@ bool ZigbeeOTAComponent::write_image_(const uint8_t *data, size_t len) {
+   ota::OTAResponseTypes err = this->backend_->write(const_cast<uint8_t *>(data), len);
+   if (err != ota::OTA_RESPONSE_OK) {
+     ESP_LOGE(TAG, "Writing the image failed at %" PRIu32 " (%d)", this->image_written_, err);
+-    this->notify_(ota::OTA_ERROR, 0.0f, static_cast<uint8_t>(err));
+     return false;
+   }
+   this->image_written_ += len;
+@@ -426,11 +446,16 @@ void ZigbeeOTAComponent::reset_upgrade_status_() {
+                          EZB_ZCL_ATTR_OTA_UPGRADE_IMAGE_UPGRADE_STATUS_ID, EZB_ZCL_STD_MANUF_CODE, &status, false);
+ }
+ 
+-// The stack adds every answer's length to its FileOffset attribute, a repeated
+-// block's too, and ends the download once FileOffset reaches the file size.
+-// After a repeat it runs a block ahead; near the end that would end the
+-// download with the last block still on its way, so FileOffset goes back to the
+-// data written (approach from github.com/jabla/esphome-hiflow-zigbee).
++// The stack does not check the offset of a block answer: it adds every
++// answer's length to its FileOffset attribute, a repeated block's too, and asks
++// for the next block from there. After a late duplicate it runs ahead of the
++// data written and leaves a gap. When FileOffset is past where the data ends,
++// it is set back by one block: the answer already on its way (if any) is
++// skipped and the request after it asks for the right block; if nothing is on
++// its way, the stack asks for a block that overlaps the data written, whose
++// new part is kept. Either way it converges on the next answer, and the
++// download cannot end early with the last block still missing.
++// Idea from github.com/jabla/esphome-hiflow-zigbee.
+ void ZigbeeOTAComponent::resync_file_offset_(uint32_t block_len) {
+   ezb_zcl_attr_desc_t attr =
+       ezb_zcl_get_attr_desc(this->endpoint_, EZB_ZCL_CLUSTER_ID_OTA_UPGRADE, EZB_ZCL_CLUSTER_CLIENT,
+@@ -438,12 +463,14 @@ void ZigbeeOTAComponent::resync_file_offset_(uint32_t block_len) {
+   uint32_t stack_offset = 0;
+   if (attr == EZB_INVALID_ZCL_ATTR_DESC || ezb_zcl_attr_desc_get_value(attr, &stack_offset) != EZB_ERR_NONE)
+     return;
+-  uint32_t offset = this->offset_.load();
+-  if (stack_offset <= offset || stack_offset + block_len < this->file_size_)
++  const uint32_t offset = this->offset_.load();
++  if (stack_offset <= offset)
+     return;
+-  ESP_LOGW(TAG, "FileOffset %" PRIu32 " back to %" PRIu32, stack_offset, offset);
++  uint32_t target = offset > block_len ? offset - block_len : 0;
++  ESP_LOGW(TAG, "FileOffset %" PRIu32 " set to %" PRIu32 " (data written up to %" PRIu32 ")", stack_offset, target,
++           offset);
+   ezb_zcl_set_attr_value(this->endpoint_, EZB_ZCL_CLUSTER_ID_OTA_UPGRADE, EZB_ZCL_CLUSTER_CLIENT,
+-                         EZB_ZCL_ATTR_OTA_UPGRADE_FILE_OFFSET_ID, EZB_ZCL_STD_MANUF_CODE, &offset, false);
++                         EZB_ZCL_ATTR_OTA_UPGRADE_FILE_OFFSET_ID, EZB_ZCL_STD_MANUF_CODE, &target, false);
+ }
+ 
+ }  // namespace esphome::zigbee
+diff --git a/esphome/components/zigbee/ota/zigbee_ota_esp32.h b/esphome/components/zigbee/ota/zigbee_ota_esp32.h
+index 3847bf6..d0cbc3e 100644
+--- a/esphome/components/zigbee/ota/zigbee_ota_esp32.h
++++ b/esphome/components/zigbee/ota/zigbee_ota_esp32.h
+@@ -69,6 +69,7 @@ class ZigbeeOTAComponent : public ota::OTAComponent, public ZigbeeOTAListener, p
+   bool inflate_done_{false};
+   bool failed_{false};
+   uint8_t last_percent_{0};
++  uint8_t resyncs_{0};
+ 
+   // Shared with the main loop.
+   std::atomic<uint32_t> offset_{0};
+-- 
+2.43.0
+
