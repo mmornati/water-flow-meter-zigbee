@@ -1,0 +1,257 @@
+From f4e4b732f5d43dce2d991cdc2858898182f15c09 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 29 Oct 2026 20:26:27 +0000
+Subject: [PATCH] [zigbee] OTA: sleepy end devices
+
+A sleepy end device only hears its parent when it polls, so every block
+waited a whole polling_interval. While an update runs (offer to reboot,
+or until it fails) the device now polls every fast_poll_interval
+(default 50 ms) and goes back to its own interval afterwards. With
+deep_sleep configured, deep sleep is held off from the query to the end
+of the download.
+
+query_on_join (default on for a sleepy device) sends Query Next Image
+once the device has joined after boot, so an update scheduled in the
+coordinator (Zigbee2MQTT ota_update/schedule) starts when the device
+wakes.
+
+Idea from github.com/jabla/esphome-hiflow-zigbee.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01TAigdDwPTsH7gxNNraUrHU
+---
+ esphome/components/zigbee/ota/__init__.py     | 19 +++++++
+ .../zigbee/ota/zigbee_ota_esp32.cpp           | 57 +++++++++++++++++++
+ .../components/zigbee/ota/zigbee_ota_esp32.h  | 25 +++++++-
+ esphome/components/zigbee/zigbee_esp32.h      |  1 +
+ 4 files changed, 101 insertions(+), 1 deletion(-)
+
+diff --git a/esphome/components/zigbee/ota/__init__.py b/esphome/components/zigbee/ota/__init__.py
+index aa2d6b6..cb90d97 100644
+--- a/esphome/components/zigbee/ota/__init__.py
++++ b/esphome/components/zigbee/ota/__init__.py
+@@ -34,6 +34,8 @@ CONF_FILE_VERSION = "file_version"
+ CONF_BLOCK_SIZE = "block_size"
+ CONF_COMPRESS = "compress"
+ CONF_CONFIRM_TIMEOUT = "confirm_timeout"
++CONF_FAST_POLL_INTERVAL = "fast_poll_interval"
++CONF_QUERY_ON_JOIN = "query_on_join"
+ 
+ OTA_FILE_NAME = "firmware.zigbee.ota"
+ PACKER_SCRIPT = "make_zigbee_ota.py"
+@@ -68,6 +70,15 @@ CONFIG_SCHEMA = cv.All(
+             cv.Optional(
+                 CONF_CONFIRM_TIMEOUT, default="10min"
+             ): cv.positive_time_period_milliseconds,
++            # Sleepy end device: poll the parent this often while an update
++            # runs (every block waits at the parent until the next poll).
++            cv.Optional(
++                CONF_FAST_POLL_INTERVAL, default="50ms"
++            ): cv.positive_time_period_milliseconds,
++            # Ask the coordinator for an image once joined after boot, so an
++            # update scheduled there starts when the device wakes. Defaults to
++            # on for a sleepy end device.
++            cv.Optional(CONF_QUERY_ON_JOIN): cv.boolean,
+         }
+     )
+     .extend(BASE_OTA_SCHEMA)
+@@ -92,6 +103,14 @@ async def to_code(config: ConfigType) -> None:
+     cg.add(var.set_file_version(file_version))
+     cg.add(var.set_manufacturer_code(config[CONF_MANUFACTURER_CODE]))
+     cg.add(var.set_image_type(config[CONF_IMAGE_TYPE]))
++    cg.add(var.set_fast_poll_interval(config[CONF_FAST_POLL_INTERVAL]))
++    sleepy = bool((CORE.config.get("zigbee") or {}).get("sleepy"))
++    if config.get(CONF_QUERY_ON_JOIN, sleepy):
++        cg.add(var.set_query_on_join(True))
++    deep_sleep_conf = CORE.config.get("deep_sleep") or {}
++    if CONF_ID in deep_sleep_conf:
++        # Stays awake from the query to the end of the download.
++        cg.add(var.set_deep_sleep(await cg.get_variable(deep_sleep_conf[CONF_ID])))
+     safe_mode_conf = CORE.config.get("safe_mode") or {}
+     if config[CONF_CONFIRM_TIMEOUT] and CONF_ID in safe_mode_conf:
+         cg.add_define("USE_ZIGBEE_OTA_CONFIRM")
+diff --git a/esphome/components/zigbee/ota/zigbee_ota_esp32.cpp b/esphome/components/zigbee/ota/zigbee_ota_esp32.cpp
+index add3a95..59b8ee0 100644
+--- a/esphome/components/zigbee/ota/zigbee_ota_esp32.cpp
++++ b/esphome/components/zigbee/ota/zigbee_ota_esp32.cpp
+@@ -41,6 +41,8 @@ static constexpr uint32_t REBOOT_DELAY_MAX_S = 86400;
+ static constexpr uint8_t MAX_RESYNCS = 50;
+ // While a new image waits for confirmation, ask the server this often.
+ static constexpr uint32_t CONFIRM_QUERY_MS = 30000;
++// After a query, stay awake (no deep sleep) this long for the answer.
++static constexpr uint32_t QUERY_ANSWER_MS = 15000;
+ 
+ void ZigbeeOTAComponent::setup() {
+   this->parent_->set_ota_listener(this);
+@@ -80,6 +82,25 @@ void ZigbeeOTAComponent::loop() {
+     this->confirm_loop_(now);
+ #endif
+ 
++  if (this->query_on_join_ && !this->queried_ && this->parent_->is_joined()) {
++    this->queried_ = true;
++    this->query_sent_ms_ = now;
++#ifdef USE_DEEP_SLEEP
++    if (this->deep_sleep_ != nullptr) {
++      this->awaiting_answer_ = true;
++      this->deep_sleep_->prevent_deep_sleep();
++    }
++#endif
++    this->send_query_();
++  }
++#ifdef USE_DEEP_SLEEP
++  // No answer (or no offer) in time: let the device sleep again.
++  if (this->awaiting_answer_.load() && !this->updating_.load() && now - this->query_sent_ms_ > QUERY_ANSWER_MS) {
++    this->awaiting_answer_ = false;
++    this->deep_sleep_->allow_deep_sleep();
++  }
++#endif
++
+   if (this->reboot_pending_.load()) {
+     if (this->reboot_at_ms_ == 0) {
+       const uint32_t delay_ms = std::max(this->reboot_delay_ms_.load(), REBOOT_DELAY_MIN_MS);
+@@ -125,6 +146,8 @@ void ZigbeeOTAComponent::confirm_loop_(uint32_t now) {
+   }
+ }
+ 
++#endif
++
+ void ZigbeeOTAComponent::send_query_() {
+   ezb_zcl_ota_upgrade_query_next_image_req_cmd_t req = {};
+   req.cmd_ctrl.dst_addr.addr_mode = EZB_ADDR_MODE_SHORT;
+@@ -141,7 +164,31 @@ void ZigbeeOTAComponent::send_query_() {
+   esp_zigbee_lock_release();
+   ESP_LOGD(TAG, "Query Next Image sent (%d)", err);
+ }
++
++// From both tasks: the stack calls it on its own task, the stall check from
++// the main loop holding the stack's lock.
++void ZigbeeOTAComponent::set_updating_(bool updating) {
++  if (this->updating_.exchange(updating) == updating)
++    return;
++  if (this->parent_->is_sleepy()) {
++    if (updating) {
++      this->saved_poll_ms_ = ezb_nwk_get_keepalive_interval();
++      ezb_nwk_set_keepalive_interval(this->fast_poll_ms_);
++    } else if (this->saved_poll_ms_ != 0) {
++      ezb_nwk_set_keepalive_interval(this->saved_poll_ms_);
++    }
++    ESP_LOGD(TAG, "Poll every %" PRIu32 " ms", updating ? this->fast_poll_ms_ : this->saved_poll_ms_);
++  }
++#ifdef USE_DEEP_SLEEP
++  if (this->deep_sleep_ != nullptr) {
++    if (updating) {
++      this->deep_sleep_->prevent_deep_sleep();
++    } else {
++      this->deep_sleep_->allow_deep_sleep();
++    }
++  }
+ #endif
++}
+ 
+ void ZigbeeOTAComponent::notify_(ota::OTAState state, float progress, uint8_t error) {
+ #ifdef USE_OTA_STATE_LISTENER
+@@ -156,6 +203,11 @@ void ZigbeeOTAComponent::on_ota_action(ezb_zcl_core_action_callback_id_t callbac
+     // Any answer, "no image" included, proves the round trip to the server.
+     this->server_answered_ = true;
+ #endif
++    if (msg->in.image.status != EZB_ZCL_OTA_UPGRADE_STATUS_CODE_SUCCESS && this->awaiting_answer_.exchange(false)) {
++#ifdef USE_DEEP_SLEEP
++      this->deep_sleep_->allow_deep_sleep();
++#endif
++    }
+     if (msg->in.image.status == EZB_ZCL_OTA_UPGRADE_STATUS_CODE_SUCCESS) {
+       ESP_LOGI(TAG, "Image offered: type 0x%04X, version 0x%08" PRIX32 ", %" PRIu32 " bytes", msg->in.image.image_type,
+                msg->in.image.file_version, msg->in.image.size);
+@@ -246,6 +298,8 @@ ezb_zcl_status_t ZigbeeOTAComponent::on_start_(uint32_t file_size, uint32_t file
+     return EZB_ZCL_STATUS_ABORT;
+   }
+   this->downloading_ = true;
++  this->awaiting_answer_ = false;
++  this->set_updating_(true);
+   this->notify_(ota::OTA_STARTED, 0.0f, 0);
+   return EZB_ZCL_STATUS_SUCCESS;
+ }
+@@ -494,6 +548,9 @@ void ZigbeeOTAComponent::release_inflater_() {
+ 
+ void ZigbeeOTAComponent::end_download_() {
+   this->downloading_ = false;
++  // A checked image keeps the fast poll until the reboot (APPLY, FINISH).
++  if (!this->ended_.load())
++    this->set_updating_(false);
+   this->release_inflater_();
+   if (this->backend_ != nullptr) {
+     this->backend_->abort();
+diff --git a/esphome/components/zigbee/ota/zigbee_ota_esp32.h b/esphome/components/zigbee/ota/zigbee_ota_esp32.h
+index 19cbfde..4efb017 100644
+--- a/esphome/components/zigbee/ota/zigbee_ota_esp32.h
++++ b/esphome/components/zigbee/ota/zigbee_ota_esp32.h
+@@ -14,6 +14,9 @@
+ #ifdef USE_ZIGBEE_OTA_CONFIRM
+ #include "esphome/components/safe_mode/safe_mode.h"
+ #endif
++#ifdef USE_DEEP_SLEEP
++#include "esphome/components/deep_sleep/deep_sleep_component.h"
++#endif
+ 
+ namespace esphome::zigbee {
+ 
+@@ -34,6 +37,11 @@ class ZigbeeOTAComponent : public ota::OTAComponent, public ZigbeeOTAListener, p
+   void set_file_version(uint32_t file_version) { this->file_version_ = file_version; }
+   void set_manufacturer_code(uint16_t manufacturer_code) { this->manufacturer_code_ = manufacturer_code; }
+   void set_image_type(uint16_t image_type) { this->image_type_ = image_type; }
++  void set_fast_poll_interval(uint32_t fast_poll_ms) { this->fast_poll_ms_ = fast_poll_ms; }
++  void set_query_on_join(bool query_on_join) { this->query_on_join_ = query_on_join; }
++#ifdef USE_DEEP_SLEEP
++  void set_deep_sleep(deep_sleep::DeepSleepComponent *deep_sleep) { this->deep_sleep_ = deep_sleep; }
++#endif
+ #ifdef USE_ZIGBEE_OTA_CONFIRM
+   void set_safe_mode(safe_mode::SafeModeComponent *safe_mode) { this->safe_mode_ = safe_mode; }
+   void set_confirm_timeout(uint32_t confirm_timeout_ms) { this->confirm_timeout_ms_ = confirm_timeout_ms; }
+@@ -58,9 +66,10 @@ class ZigbeeOTAComponent : public ota::OTAComponent, public ZigbeeOTAListener, p
+   void reset_upgrade_status_();
+   void resync_file_offset_(uint32_t block_len);
+   void notify_(ota::OTAState state, float progress, uint8_t error);
++  void send_query_();
++  void set_updating_(bool updating);
+ #ifdef USE_ZIGBEE_OTA_CONFIRM
+   void confirm_loop_(uint32_t now);
+-  void send_query_();
+ #endif
+ 
+   uint8_t endpoint_{1};
+@@ -68,6 +77,20 @@ class ZigbeeOTAComponent : public ota::OTAComponent, public ZigbeeOTAListener, p
+   uint32_t file_version_{0};
+   uint16_t manufacturer_code_{0};
+   uint16_t image_type_{0};
++  // Sleepy end device: every block waits at the parent until the next poll, so
++  // the poll interval sets the speed; it is fast_poll_ms_ while an update runs.
++  uint32_t fast_poll_ms_{50};
++  uint32_t saved_poll_ms_{0};
++  // Ask the server for an image once joined after boot, so an update scheduled
++  // in the coordinator starts when a sleeping device wakes.
++  bool query_on_join_{false};
++  bool queried_{false};
++  uint32_t query_sent_ms_{0};
++  std::atomic<bool> updating_{false};
++  std::atomic<bool> awaiting_answer_{false};
++#ifdef USE_DEEP_SLEEP
++  deep_sleep::DeepSleepComponent *deep_sleep_{nullptr};
++#endif
+ #ifdef USE_ZIGBEE_OTA_CONFIRM
+   // A new image stays unconfirmed (bootloader rollback armed) until the OTA
+   // server answers: an image that boots but cannot reach the Zigbee network
+diff --git a/esphome/components/zigbee/zigbee_esp32.h b/esphome/components/zigbee/zigbee_esp32.h
+index 03a8dea..3ff448f 100644
+--- a/esphome/components/zigbee/zigbee_esp32.h
++++ b/esphome/components/zigbee/zigbee_esp32.h
+@@ -87,6 +87,7 @@ class ZigbeeComponent final : public Component {
+ 
+   // True if the device has joined a network and is ready to send and receive messages.
+   bool is_joined() { return this->joined_; }
++  bool is_sleepy() const { return this->sleepy_; }
+ 
+  protected:
+   bool sleepy_{false};
+-- 
+2.43.0
+
